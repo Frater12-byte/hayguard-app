@@ -31,9 +31,9 @@ CREATE TABLE IF NOT EXISTS farms (
     name VARCHAR(255) NOT NULL,
     owner_id UUID REFERENCES users(id) ON DELETE CASCADE,
     description TEXT,
-    coordinates JSONB, -- Store lat/lng as {"lat": 40.7128, "lng": -74.0060}
-    area VARCHAR(100), -- e.g., "150 acres", "60 hectares"
-    crops TEXT[], -- Array of crop types
+    coordinates JSONB,
+    area VARCHAR(100),
+    crops TEXT[],
     established DATE,
     address TEXT,
     timezone VARCHAR(50) DEFAULT 'UTC',
@@ -69,17 +69,17 @@ CREATE TABLE IF NOT EXISTS sensors (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     farm_id UUID REFERENCES farms(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
-    location VARCHAR(255), -- Field description (e.g., "North Field", "Greenhouse A")
-    coordinates JSONB, -- Specific sensor coordinates
-    sensor_type VARCHAR(50) DEFAULT 'environmental', -- environmental, weather, irrigation
-    device_id VARCHAR(100) UNIQUE, -- Hardware device identifier
+    location VARCHAR(255),
+    coordinates JSONB,
+    sensor_type VARCHAR(50) DEFAULT 'environmental',
+    device_id VARCHAR(100) UNIQUE,
     manufacturer VARCHAR(100),
     model VARCHAR(100),
     firmware_version VARCHAR(50),
     status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'warning', 'error', 'offline', 'maintenance')),
     last_reading_at TIMESTAMP,
     battery_level INTEGER CHECK (battery_level >= 0 AND battery_level <= 100),
-    signal_strength INTEGER CHECK (signal_strength >= -120 AND signal_strength <= 0), -- RSSI in dBm
+    signal_strength INTEGER CHECK (signal_strength >= -120 AND signal_strength <= 0),
     calibration_date DATE,
     maintenance_notes TEXT,
     created_at TIMESTAMP DEFAULT NOW(),
@@ -97,29 +97,21 @@ CREATE INDEX IF NOT EXISTS idx_sensors_status ON sensors(status);
 CREATE TABLE IF NOT EXISTS sensor_readings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     sensor_id UUID REFERENCES sensors(id) ON DELETE CASCADE,
-    
-    -- Environmental readings
-    temperature DECIMAL(5,2), -- Celsius (-99.99 to 999.99)
-    humidity DECIMAL(5,2), -- Percentage (0.00 to 100.00)
-    moisture DECIMAL(5,2), -- Soil moisture percentage
-    
-    -- Soil chemistry
-    nitrogen DECIMAL(6,2), -- ppm (parts per million)
-    phosphorus DECIMAL(6,2), -- ppm
-    potassium DECIMAL(6,2), -- ppm
-    ph_level DECIMAL(4,2), -- pH (0.00 to 14.00)
-    conductivity INTEGER, -- µS/cm (microsiemens per centimeter)
-    organic_matter DECIMAL(5,2), -- Percentage
-    
-    -- Weather data (if applicable)
-    rainfall DECIMAL(6,2), -- mm
-    wind_speed DECIMAL(5,2), -- m/s
-    wind_direction INTEGER, -- degrees (0-360)
-    atmospheric_pressure DECIMAL(7,2), -- hPa
-    light_intensity INTEGER, -- lux
-    
-    -- System data
-    battery_voltage DECIMAL(4,2), -- volts
+    temperature DECIMAL(5,2),
+    humidity DECIMAL(5,2),
+    moisture DECIMAL(5,2),
+    nitrogen DECIMAL(6,2),
+    phosphorus DECIMAL(6,2),
+    potassium DECIMAL(6,2),
+    ph_level DECIMAL(4,2),
+    conductivity INTEGER,
+    organic_matter DECIMAL(5,2),
+    rainfall DECIMAL(6,2),
+    wind_speed DECIMAL(5,2),
+    wind_direction INTEGER,
+    atmospheric_pressure DECIMAL(7,2),
+    light_intensity INTEGER,
+    battery_voltage DECIMAL(4,2),
     timestamp TIMESTAMP DEFAULT NOW(),
     created_at TIMESTAMP DEFAULT NOW()
 );
@@ -135,12 +127,12 @@ CREATE TABLE IF NOT EXISTS alerts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     farm_id UUID REFERENCES farms(id) ON DELETE CASCADE,
     sensor_id UUID REFERENCES sensors(id) ON DELETE CASCADE,
-    alert_type VARCHAR(50) NOT NULL, -- temperature, moisture, ph, battery, offline
+    alert_type VARCHAR(50) NOT NULL,
     severity VARCHAR(20) CHECK (severity IN ('low', 'medium', 'high', 'critical')),
     title VARCHAR(255) NOT NULL,
     message TEXT NOT NULL,
-    threshold_value DECIMAL(10,2), -- The threshold that was crossed
-    actual_value DECIMAL(10,2), -- The actual reading that triggered alert
+    threshold_value DECIMAL(10,2),
+    actual_value DECIMAL(10,2),
     resolved BOOLEAN DEFAULT FALSE,
     resolved_at TIMESTAMP,
     resolved_by UUID REFERENCES users(id),
@@ -162,10 +154,10 @@ CREATE INDEX IF NOT EXISTS idx_alerts_created ON alerts(created_at DESC);
 CREATE TABLE IF NOT EXISTS alert_rules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     farm_id UUID REFERENCES farms(id) ON DELETE CASCADE,
-    sensor_id UUID REFERENCES sensors(id) ON DELETE CASCADE, -- NULL means farm-wide
+    sensor_id UUID REFERENCES sensors(id) ON DELETE CASCADE,
     rule_name VARCHAR(255) NOT NULL,
-    parameter VARCHAR(50) NOT NULL, -- temperature, moisture, ph, etc.
-    condition VARCHAR(20) NOT NULL, -- greater_than, less_than, equals, between
+    parameter VARCHAR(50) NOT NULL,
+    condition VARCHAR(20) NOT NULL,
     threshold_min DECIMAL(10,2),
     threshold_max DECIMAL(10,2),
     severity VARCHAR(20) CHECK (severity IN ('low', 'medium', 'high', 'critical')),
@@ -190,10 +182,10 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
     email_enabled BOOLEAN DEFAULT TRUE,
     sms_enabled BOOLEAN DEFAULT FALSE,
     push_enabled BOOLEAN DEFAULT TRUE,
-    email_frequency VARCHAR(20) DEFAULT 'immediate', -- immediate, hourly, daily
-    severity_threshold VARCHAR(20) DEFAULT 'medium', -- low, medium, high, critical
-    quiet_hours_start TIME, -- e.g., '22:00:00'
-    quiet_hours_end TIME, -- e.g., '06:00:00'
+    email_frequency VARCHAR(20) DEFAULT 'immediate',
+    severity_threshold VARCHAR(20) DEFAULT 'medium',
+    quiet_hours_start TIME,
+    quiet_hours_end TIME,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
     UNIQUE(user_id, farm_id)
@@ -206,8 +198,8 @@ CREATE TABLE IF NOT EXISTS system_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     farm_id UUID REFERENCES farms(id) ON DELETE CASCADE,
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    action VARCHAR(100) NOT NULL, -- login, sensor_added, alert_created, etc.
-    details JSONB, -- Additional structured data
+    action VARCHAR(100) NOT NULL,
+    details JSONB,
     ip_address INET,
     user_agent TEXT,
     created_at TIMESTAMP DEFAULT NOW()
@@ -262,12 +254,12 @@ ORDER BY a.created_at DESC;
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $
+RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$ language 'plpgsql';
+$$ LANGUAGE 'plpgsql';
 
 -- Apply update triggers to relevant tables
 DROP TRIGGER IF EXISTS update_users_updated_at ON users;
