@@ -16,6 +16,14 @@ require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 3001;
 
+// Mail
+const transporter = nodemailer.createTransport({
+  service: 'Gmail', // or your email provider
+  auth: {
+    user: process.env.EMAIL_USER, // your email address
+    pass: process.env.EMAIL_PASS  // your app password
+  }
+});
 // Security middleware
 app.use(helmet());
 
@@ -96,13 +104,13 @@ const checkPermission = (requiredLevel) => {
 };
 
 // Email configuration
-const transporter = nodemailer.createTransporter({
-  host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
-  secure: false,
+const transporter = nodemailer.createTransport({
+  host: "smtp.example.com",   // your SMTP server
+  port: 587,                  // usually 587 for TLS
+  secure: false,              // true for 465, false for other ports
   auth: {
     user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD
+    pass: process.env.SMTP_PASS
   }
 });
 
