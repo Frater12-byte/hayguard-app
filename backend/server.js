@@ -115,6 +115,68 @@ app.post('/api/users/login', async (req, res) => {
   }
 });
 
+// Alternative auth registration route (for frontend compatibility)
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, name, password } = req.body;
+    
+    if (!email || !name || !password) {
+      return res.status(400).json({ error: 'Email, name, and password are required' });
+    }
+
+    const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existingUser.rows.length > 0) {
+      return res.status(409).json({ error: 'User already exists with this email' });
+    }
+
+    const hashedPassword = password;
+    
+    const result = await pool.query(
+      'INSERT INTO users (email, name, password_hash, email_verified) VALUES ($1, $2, $3, $4) RETURNING id, email, name, created_at',
+      [email, name, hashedPassword, false]
+    );
+
+    res.status(201).json({
+      message: 'User registered successfully',
+      user: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ error: 'Failed to register user' });
+  }
+});
+
+// Alternative auth login route (for frontend compatibility)  
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    const result = await pool.query('SELECT id, email, name, password_hash FROM users WHERE email = $1', [email]);
+    
+    if (result.rows.length === 0 || result.rows[0].password_hash !== password) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    res.json({
+      message: 'Login successful',
+      user: {
+        id: result.rows[0].id,
+        email: result.rows[0].email,
+        name: result.rows[0].name
+      }
+    });
+
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Failed to login' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
   console.log(`Health check: http://localhost:${port}/health`);
