@@ -1,29 +1,22 @@
-// HayGuard Backend - Enhanced Node.js/Express API with All Endpoints
+// HayGuard Backend - Enhanced Node.js/Express API
 // server.js - PRODUCTION READY VERSION
 
+require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { Pool } = require('pg');
-const cors = require('cors');
-const rateLimit = require('express-rate-limit');
-const helmet = require('helmet');
-const PDFDocument = require('pdfkit');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
-require('dotenv').config();
+const PDFDocument = require('pdfkit');
 
+// Initialize Express
 const app = express();
 const port = process.env.PORT || 3001;
 
-// Mail
-const transporter = nodemailer.createTransport({
-  service: 'Gmail', // or your email provider
-  auth: {
-    user: process.env.EMAIL_USER, // your email address
-    pass: process.env.EMAIL_PASS  // your app password
-  }
-});
 // Security middleware
 app.use(helmet());
 
@@ -105,14 +98,24 @@ const checkPermission = (requiredLevel) => {
 
 // Email configuration
 const transporter = nodemailer.createTransport({
-  host: "smtp.example.com",   // your SMTP server
-  port: 587,                  // usually 587 for TLS
-  secure: false,              // true for 465, false for other ports
+  host: process.env.SMTP_HOST || "smtp.gmail.com", // default to Gmail SMTP
+  port: process.env.SMTP_PORT || 587,              // usually 587 for TLS
+  secure: process.env.SMTP_SECURE === "true",      // true for 465, false for others
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
+    user: process.env.EMAIL_USER || process.env.SMTP_USER, // your email address
+    pass: process.env.EMAIL_PASS || process.env.SMTP_PASS  // your email password or app password
   }
 });
+
+// Optional: verify the transporter is configured correctly
+transporter.verify(function(error, success) {
+  if (error) {
+    console.log("Email transporter error:", error);
+  } else {
+    console.log("Email transporter is ready to send messages");
+  }
+});
+
 
 // Health check
 app.get('/health', (req, res) => {
@@ -127,7 +130,6 @@ app.get('/health', (req, res) => {
 // =============================================================================
 // DATABASE INITIALIZATION
 // =============================================================================
-
 const initializeDatabase = async () => {
   try {
     await pool.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
@@ -375,6 +377,18 @@ app.post('/api/auth/login', async (req, res) => {
     res.status(500).json({ error: 'Login failed' });
   }
 });
+
+// Routes
+app.get('/api/users', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM users');
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 
 // =============================================================================
 // FARM MANAGEMENT ROUTES
