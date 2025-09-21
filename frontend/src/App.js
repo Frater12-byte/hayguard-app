@@ -16,6 +16,7 @@ import Farms from './components/Farms/Farms';
 import FarmDetails from './components/Farms/FarmDetails';
 import Weather from './components/Weather/Weather';
 import Analytics from './components/Analytics/Analytics';
+import APIDebugTest from './components/TestPage'; 
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 
@@ -127,7 +128,7 @@ function App() {
                       <Route path="/farms/:id" element={<FarmDetails />} />
                       <Route path="/weather" element={<Weather />} />
                       <Route path="/analytics" element={<Analytics />} />
-                    </Routes>
+                      <Route path="/debug" element={<APIDebugTest />} />                    </Routes>
                   </div>
                 </div>
               </div>
