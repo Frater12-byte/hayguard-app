@@ -17,7 +17,7 @@ const pool = new Pool({
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({origin: ["https://hayguard-app.com", "https://www.hayguard-app.com", "http://localhost:3000"]}));
 app.use(express.json());
 
 // Email configuration
