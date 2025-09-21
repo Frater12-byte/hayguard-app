@@ -17,16 +17,9 @@ const pool = new Pool({
 });
 
 // Middleware
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Origin,X-Requested-With,Content-Type,Accept,Authorization");
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-  next();
-});
+app.use(cors());
 app.use(express.json());
+
 // Email configuration
 const transporter = nodemailer.createTransport({
   service: 'gmail', // or your email service
@@ -37,28 +30,19 @@ const transporter = nodemailer.createTransport({
 });
 
 // Authentication middleware
-// Authentication middleware
 const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
     return res.sendStatus(401);
   }
 
-  // Allow demo token for development
-  if (token === "demo-token") {
-    req.user = { userId: 1, email: "demo@hayguard.com" };
-    return next();
-  }
-
-  // Verify JWT tokens
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
     if (err) return res.sendStatus(403);
     req.user = user;
     next();
   });
-};  });
 };
 
 // Routes
