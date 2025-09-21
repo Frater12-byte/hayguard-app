@@ -17,7 +17,17 @@ const pool = new Pool({
 });
 
 // Middleware
-app.use(cors({origin: ["https://hayguard-app.com", "https://www.hayguard-app.com", "http://localhost:3000"]}));
+// Explicit CORS headers
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "https://www.hayguard-app.com,https://hayguard-app.com");
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Origin,X-Requested-With,Content-Type,Accept,Authorization");
+  if (req.method === "OPTIONS") {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});app.use(cors({origin: ["https://hayguard-app.com", "https://www.hayguard-app.com", "http://localhost:3000"]}));
 app.use(express.json());
 
 // Email configuration
