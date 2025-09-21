@@ -371,3 +371,7 @@ app.post('/api/email/reset-password', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+// Health check route
+app.get('/', (req, res) => {
+  res.json({ message: 'HayGuard Backend API is running', status: 'ok' });
+});
