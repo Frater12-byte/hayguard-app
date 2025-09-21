@@ -3,7 +3,21 @@ import { apiService } from '../services/apiService';
 import './Dashboard.css';
 
 const Dashboard = ({ user }) => {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  // Quick API test - remove after debugging
+  const testAPI = async () => {
+    console.log("Testing API connection...");
+    try {
+      const response = await fetch("https://hayguard-app-backend.vercel.app");
+      const data = await response.json();
+      console.log("Backend health check:", data);
+    } catch (error) {
+      console.log("Backend connection failed:", error);
+    }
+  };
+  
+  React.useEffect(() => {
+    testAPI();
+  }, []);  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [alerts, setAlerts] = useState([]);
   const [kpiData, setKpiData] = useState({
     activeSensors: 0,
