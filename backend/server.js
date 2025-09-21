@@ -17,19 +17,16 @@ const pool = new Pool({
 });
 
 // Middleware
-// Explicit CORS headers
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "https://www.hayguard-app.com,https://hayguard-app.com");
+  res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
   res.header("Access-Control-Allow-Headers", "Origin,X-Requested-With,Content-Type,Accept,Authorization");
   if (req.method === "OPTIONS") {
-    res.sendStatus(200);
-  } else {
-    next();
+    return res.sendStatus(200);
   }
-});app.use(cors({origin: ["https://hayguard-app.com", "https://www.hayguard-app.com", "http://localhost:3000"]}));
+  next();
+});
 app.use(express.json());
-
 // Email configuration
 const transporter = nodemailer.createTransport({
   service: 'gmail', // or your email service
