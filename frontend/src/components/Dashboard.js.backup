@@ -1,0 +1,232 @@
+import React, { useState, useEffect } from 'react';
+import './Dashboard.css';
+
+const Dashboard = ({ user }) => {
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [alerts, setAlerts] = useState([]);
+
+  // Mock data - in real app this would come from API
+  const kpiData = {
+    activeSensors: 12,
+    criticalAlerts: 3,
+    totalBales: 1247,
+    avgTemperature: 23.5,
+    avgMoisture: 14.2,
+    systemHealth: 98
+  };
+
+  const mockAlerts = [
+    {
+      id: 1,
+      date: '2025-01-15',
+      time: '14:30',
+      sensor: 'HB-2024-002',
+      type: 'critical',
+      title: 'High Temperature Alert',
+      description: 'Temperature reached 85°C in South Field B. Immediate action required.',
+      location: 'South Field B'
+    },
+    {
+      id: 2,
+      date: '2025-01-15',
+      time: '12:15',
+      sensor: 'HB-2024-001',
+      type: 'warning',
+      title: 'Moisture Level Warning',
+      description: 'Moisture level at 18.2% - monitor closely for potential issues.',
+      location: 'North Field A'
+    },
+    {
+      id: 3,
+      date: '2025-01-14',
+      time: '09:45',
+      sensor: 'HB-2024-003',
+      type: 'info',
+      title: 'Sensor Maintenance',
+      description: 'Routine maintenance completed successfully.',
+      location: 'East Field C'
+    }
+  ];
+
+  useEffect(() => {
+    // Filter alerts by selected date
+    const filteredAlerts = mockAlerts.filter(alert => alert.date === selectedDate);
+    setAlerts(filteredAlerts);
+  }, [selectedDate]); // mockAlerts is static, no need to include
+
+  const teamActivity = [
+    { user: 'John Smith', action: 'Added new sensor HB-2024-012', time: '2 hours ago', avatar: '/default-avatar.png' },
+    { user: 'Sarah Wilson', action: 'Updated temperature threshold', time: '4 hours ago', avatar: '/default-avatar.png' },
+    { user: 'Mike Johnson', action: 'Resolved critical alert in Field B', time: '6 hours ago', avatar: '/default-avatar.png' }
+  ];
+
+  return (
+    <div className="dashboard">
+      <div className="dashboard-header">
+        <h1>Farm Dashboard</h1>
+        <p>Welcome back, {user?.name || 'Farmer'}! Here's your farm overview.</p>
+      </div>
+
+      {/* Main KPIs - 6 in one line for desktop */}
+      <div className="kpi-grid">
+        <div className="kpi-card">
+          <div className="kpi-icon">📡</div>
+          <div className="kpi-content">
+            <h3>{kpiData.activeSensors}</h3>
+            <p>Active Sensors</p>
+          </div>
+        </div>
+        
+        <div className="kpi-card critical">
+          <div className="kpi-icon">⚠️</div>
+          <div className="kpi-content">
+            <h3>{kpiData.criticalAlerts}</h3>
+            <p>Critical Alerts</p>
+          </div>
+        </div>
+        
+        <div className="kpi-card">
+          <div className="kpi-icon">📦</div>
+          <div className="kpi-content">
+            <h3>{kpiData.totalBales.toLocaleString()}</h3>
+            <p>Total Bales</p>
+          </div>
+        </div>
+        
+        <div className="kpi-card">
+          <div className="kpi-icon">🌡️</div>
+          <div className="kpi-content">
+            <h3>{kpiData.avgTemperature}°C</h3>
+            <p>Avg Temperature</p>
+          </div>
+        </div>
+        
+        <div className="kpi-card">
+          <div className="kpi-icon">💧</div>
+          <div className="kpi-content">
+            <h3>{kpiData.avgMoisture}%</h3>
+            <p>Avg Moisture</p>
+          </div>
+        </div>
+        
+        <div className="kpi-card">
+          <div className="kpi-icon">✅</div>
+          <div className="kpi-content">
+            <h3>{kpiData.systemHealth}%</h3>
+            <p>System Health</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Alerts History Section */}
+      <div className="alerts-history-section">
+        <div className="section-header">
+          <h2>Alerts History</h2>
+          <div className="date-selector">
+            <label htmlFor="alertDate">Select Date:</label>
+            <input
+              id="alertDate"
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="date-input"
+            />
+          </div>
+        </div>
+        
+        <div className="alerts-list">
+          {alerts.length > 0 ? (
+            alerts.map(alert => (
+              <div key={alert.id} className={`alert-item ${alert.type}`}>
+                <div className="alert-time">{alert.time}</div>
+                <div className="alert-content">
+                  <div className="alert-header">
+                    <span className="alert-title">{alert.title}</span>
+                    <span className="alert-sensor">Sensor: {alert.sensor}</span>
+                  </div>
+                  <p className="alert-description">{alert.description}</p>
+                  <div className="alert-location">📍 {alert.location}</div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="no-alerts">
+              <p>No alerts for {selectedDate}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Charts Section */}
+      <div className="charts-section">
+        <div className="chart-container">
+          <h3>Temperature Trends (Last 7 Days)</h3>
+          <div className="chart-placeholder">
+            <svg viewBox="0 0 400 200" className="chart-svg">
+              {/* Grid lines */}
+              <defs>
+                <pattern id="grid" width="40" height="20" patternUnits="userSpaceOnUse">
+                  <path d="M 40 0 L 0 0 0 20" fill="none" stroke="#e1e5e9" strokeWidth="1"/>
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#grid)" />
+              
+              {/* Sample data line */}
+              <polyline
+                fill="none"
+                stroke="#f7b32b"
+                strokeWidth="3"
+                points="20,150 60,120 100,140 140,110 180,130 220,100 260,120 300,90 340,110 380,95"
+              />
+              
+              {/* Data points */}
+              {[20,60,100,140,180,220,260,300,340,380].map((x, i) => {
+                const y = [150,120,140,110,130,100,120,90,110,95][i];
+                return <circle key={i} cx={x} cy={y} r="4" fill="#7c4219" />;
+              })}
+            </svg>
+          </div>
+        </div>
+        
+        <div className="chart-container">
+          <h3>Moisture Levels (Last 7 Days)</h3>
+          <div className="chart-placeholder">
+            <svg viewBox="0 0 400 200" className="chart-svg">
+              <rect width="100%" height="100%" fill="url(#grid)" />
+              <polyline
+                fill="none"
+                stroke="#42210e"
+                strokeWidth="3"
+                points="20,160 60,140 100,155 140,135 180,150 220,130 260,145 300,125 340,140 380,135"
+              />
+              {[20,60,100,140,180,220,260,300,340,380].map((x, i) => {
+                const y = [160,140,155,135,150,130,145,125,140,135][i];
+                return <circle key={i} cx={x} cy={y} r="4" fill="#42210e" />;
+              })}
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      {/* Team Activity Section */}
+      <div className="team-activity-section">
+        <h3>Recent Team Activity</h3>
+        <div className="activity-list">
+          {teamActivity.map((activity, index) => (
+            <div key={index} className="activity-item">
+              <img src={activity.avatar} alt={activity.user} className="activity-avatar" />
+              <div className="activity-content">
+                <div className="activity-text">
+                  <strong>{activity.user}</strong> {activity.action}
+                </div>
+                <div className="activity-time">{activity.time}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;

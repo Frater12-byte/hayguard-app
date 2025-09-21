@@ -1,0 +1,374 @@
+import React, { useState } from 'react';
+
+const Team = () => {
+  const [teamMembers, setTeamMembers] = useState([
+    {
+      id: 1,
+      name: 'Sarah Johnson',
+      email: 'sarah@hayguard.com',
+      phone: '+1 (555) 123-4567',
+      role: 'Farm Manager',
+      status: 'active',
+      lastActive: '2 hours ago',
+      joinDate: '2024-01-15'
+    },
+    {
+      id: 2,
+      name: 'Mike Chen',
+      email: 'mike@hayguard.com',
+      phone: '+1 (555) 234-5678',
+      role: 'Sensor Technician',
+      status: 'active',
+      lastActive: '5 hours ago',
+      joinDate: '2024-02-01'
+    },
+    {
+      id: 3,
+      name: 'Alex Rivera',
+      email: 'alex@hayguard.com',
+      phone: '+1 (555) 345-6789',
+      role: 'Analytics Specialist',
+      status: 'offline',
+      lastActive: '1 day ago',
+      joinDate: '2024-01-20'
+    }
+  ]);
+
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingMember, setEditingMember] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    role: 'Farm Manager'
+  });
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleAddMember = () => {
+    const newMember = {
+      id: teamMembers.length + 1,
+      ...formData,
+      status: 'active',
+      lastActive: 'Just added',
+      joinDate: new Date().toISOString().split('T')[0]
+    };
+    
+    setTeamMembers(prev => [...prev, newMember]);
+    setFormData({ name: '', email: '', phone: '', role: 'Farm Manager' });
+    setShowAddForm(false);
+  };
+
+  const handleEditMember = (member) => {
+    setEditingMember(member.id);
+    setFormData({
+      name: member.name,
+      email: member.email,
+      phone: member.phone,
+      role: member.role
+    });
+  };
+
+  const handleUpdateMember = () => {
+    setTeamMembers(prev => prev.map(member => 
+      member.id === editingMember 
+        ? { ...member, ...formData }
+        : member
+    ));
+    setEditingMember(null);
+    setFormData({ name: '', email: '', phone: '', role: 'Farm Manager' });
+  };
+
+  const handleDeleteMember = (memberId) => {
+    if (window.confirm('Are you sure you want to remove this team member?')) {
+      setTeamMembers(prev => prev.filter(member => member.id !== memberId));
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingMember(null);
+    setShowAddForm(false);
+    setFormData({ name: '', email: '', phone: '', role: 'Farm Manager' });
+  };
+
+  const getStatusColor = (status) => {
+    return status === 'active' ? '#10b981' : '#6b7280';
+  };
+
+  const getStatusBackground = (status) => {
+    return status === 'active' ? '#dcfce7' : '#f3f4f6';
+  };
+
+  return (
+    <div style={{ padding: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <div>
+          <h1>Team Management</h1>
+          <p style={{ color: '#6b7280' }}>Manage your farm monitoring team</p>
+        </div>
+        <button 
+          onClick={() => setShowAddForm(!showAddForm)}
+          style={{ 
+            background: '#10b981', 
+            color: 'white', 
+            padding: '12px 24px', 
+            border: 'none', 
+            borderRadius: '8px', 
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '500'
+          }}
+        >
+          + Add Team Member
+        </button>
+      </div>
+
+      {(showAddForm || editingMember) && (
+        <div style={{ 
+          background: 'white', 
+          padding: '24px', 
+          borderRadius: '12px', 
+          border: '1px solid #e5e7eb', 
+          marginBottom: '24px',
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+        }}>
+          <h2>{editingMember ? 'Edit Team Member' : 'Add New Team Member'}</h2>
+          <div style={{ display: 'grid', gap: '16px', maxWidth: '500px' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>
+                Full Name:
+              </label>
+              <input 
+                type="text" 
+                placeholder="Enter full name" 
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                style={{ 
+                  width: '100%', 
+                  padding: '12px', 
+                  border: '1px solid #d1d5db', 
+                  borderRadius: '6px',
+                  fontSize: '14px'
+                }} 
+              />
+            </div>
+            
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>
+                Email Address:
+              </label>
+              <input 
+                type="email" 
+                placeholder="Enter email address" 
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                style={{ 
+                  width: '100%', 
+                  padding: '12px', 
+                  border: '1px solid #d1d5db', 
+                  borderRadius: '6px',
+                  fontSize: '14px'
+                }} 
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>
+                Phone Number:
+              </label>
+              <input 
+                type="tel" 
+                placeholder="Enter phone number" 
+                value={formData.phone}
+                onChange={(e) => handleInputChange('phone', e.target.value)}
+                style={{ 
+                  width: '100%', 
+                  padding: '12px', 
+                  border: '1px solid #d1d5db', 
+                  borderRadius: '6px',
+                  fontSize: '14px'
+                }} 
+              />
+            </div>
+            
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>
+                Role:
+              </label>
+              <select 
+                value={formData.role}
+                onChange={(e) => handleInputChange('role', e.target.value)}
+                style={{ 
+                  width: '100%', 
+                  padding: '12px', 
+                  border: '1px solid #d1d5db', 
+                  borderRadius: '6px',
+                  fontSize: '14px'
+                }}
+              >
+                <option value="Farm Manager">Farm Manager</option>
+                <option value="Sensor Technician">Sensor Technician</option>
+                <option value="Analytics Specialist">Analytics Specialist</option>
+                <option value="Farm Owner">Farm Owner</option>
+                <option value="Observer">Observer</option>
+              </select>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+              <button 
+                onClick={editingMember ? handleUpdateMember : handleAddMember}
+                disabled={!formData.name || !formData.email}
+                style={{ 
+                  background: formData.name && formData.email ? '#10b981' : '#9ca3af', 
+                  color: 'white', 
+                  padding: '12px 20px', 
+                  border: 'none', 
+                  borderRadius: '6px', 
+                  cursor: formData.name && formData.email ? 'pointer' : 'not-allowed',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}
+              >
+                {editingMember ? 'Update Member' : 'Add Member'}
+              </button>
+              <button 
+                onClick={cancelEdit}
+                style={{ 
+                  background: '#6b7280', 
+                  color: 'white', 
+                  padding: '12px 20px', 
+                  border: 'none', 
+                  borderRadius: '6px', 
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        <div style={{ padding: '24px', borderBottom: '1px solid #e5e7eb', background: '#f8fafc' }}>
+          <h2 style={{ margin: '0' }}>Team Members ({teamMembers.length})</h2>
+        </div>
+        
+        <div>
+          {teamMembers.map(member => (
+            <div key={member.id} style={{ 
+              padding: '20px 24px', 
+              borderBottom: '1px solid #f3f4f6', 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              transition: 'background 0.2s ease'
+            }}
+            onMouseEnter={(e) => e.target.style.background = '#f8fafc'}
+            onMouseLeave={(e) => e.target.style.background = 'white'}
+            >
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                  <div style={{ 
+                    width: '48px', 
+                    height: '48px', 
+                    borderRadius: '50%', 
+                    background: '#e5e7eb',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '18px',
+                    fontWeight: 'bold',
+                    color: '#6b7280'
+                  }}>
+                    {member.name.split(' ').map(n => n[0]).join('')}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: '600', fontSize: '16px', color: '#111827', marginBottom: '2px' }}>
+                      {member.name}
+                    </div>
+                    <div style={{ color: '#6b7280', fontSize: '14px' }}>{member.role}</div>
+                  </div>
+                </div>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+                  <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                    <strong>Email:</strong> {member.email}
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                    <strong>Phone:</strong> {member.phone}
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                    <strong>Joined:</strong> {new Date(member.joinDate).toLocaleDateString()}
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                    <strong>Last Active:</strong> {member.lastActive}
+                  </div>
+                </div>
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ 
+                    display: 'inline-block', 
+                    padding: '6px 12px', 
+                    borderRadius: '20px', 
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    background: getStatusBackground(member.status),
+                    color: getStatusColor(member.status),
+                    marginBottom: '8px'
+                  }}>
+                    {member.status.toUpperCase()}
+                  </div>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => handleEditMember(member)}
+                    style={{
+                      background: '#3b82f6',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: '500'
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeleteMember(member.id)}
+                    style={{
+                      background: '#ef4444',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: '500'
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Team;

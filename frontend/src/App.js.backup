@@ -1,0 +1,156 @@
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import './App.css';
+
+// Components
+import Sidebar from './components/Sidebar';
+import Header from './components/Header';
+import Dashboard from './components/Dashboard';
+import Farms from './components/Farms/Farms';
+import FarmDetails from './components/Farms/FarmDetails';
+import Analytics from './components/Analytics/Analytics';
+import Reports from './components/Reports/Reports';
+import Team from './components/Team/Team';
+import Weather from './components/Weather/Weather';
+import Alerts from './components/Alerts/Alerts';
+import Settings from './components/Settings/Settings';
+import Login from './components/Auth/Login';
+import Profile from './components/Profile/Profile';
+
+// Services
+import { authService } from './services/authService';
+import { userService } from './services/userService';
+
+function App() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    // Check if user is logged in on app start
+    const initializeAuth = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (token) {
+          const userData = await userService.getCurrentUser();
+          setUser(userData);
+        }
+      } catch (error) {
+        console.error('Auth initialization failed:', error);
+        localStorage.removeItem('token');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
+  }, []);
+
+  const handleLogin = async (email, password) => {
+    try {
+      // Demo credentials check
+      if (email === 'demo@hayguard.com' && password === 'demo123') {
+        const demoUser = {
+          id: 1,
+          name: 'John Farmer',
+          email: 'demo@hayguard.com',
+          phone: '+1 (555) 123-4567',
+          role: 'Farm Owner',
+          location: 'Springfield, IL',
+          bio: 'Experienced farmer focused on sustainable agriculture',
+          profilePicture: '/default-avatar.png'
+        };
+        setUser(demoUser);
+        localStorage.setItem('token', 'demo-token');
+        return { success: true };
+      } else {
+        return { 
+          success: false, 
+          error: 'Invalid credentials. Use demo@hayguard.com / demo123' 
+        };
+      }
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error.response?.data?.message || 'Login failed' 
+      };
+    }
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('token');
+  };
+
+  const handleUpdateUser = (updatedUserData) => {
+    setUser(prev => ({ ...prev, ...updatedUserData }));
+  };
+
+  if (loading) {
+    return (
+      <div className="app-loading">
+        <div className="loading-spinner">
+          <div className="hayguard-logo">
+            <img src="/logo.png" alt="HayGuard" />
+          </div>
+          <div className="loading-text">Loading HayGuard...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Router>
+        <div className="app">
+          <Routes>
+            <Route path="/login" element={<Login onLogin={handleLogin} />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </div>
+      </Router>
+    );
+  }
+
+  return (
+    <Router>
+      <div className="app">
+        <Sidebar 
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+          user={user}
+        />
+        
+        <div className={`main-content ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+          <Header 
+            user={user}
+            onLogout={handleLogout}
+            onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+          />
+          
+          <main className="app-main">
+            <Routes>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<Dashboard user={user} />} />
+              <Route path="/profile" element={<Profile user={user} onUpdateUser={handleUpdateUser} />} />
+              
+              <Route path="/farms" element={<Farms />} />
+              <Route path="/farms/:id" element={<FarmDetails />} />
+              
+              <Route path="/analytics" element={<Analytics />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/team" element={<Team />} />
+              <Route path="/weather" element={<Weather />} />
+              <Route path="/alerts" element={<Alerts />} />
+              <Route path="/settings" element={<Settings user={user} />} />
+              
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </main>
+        </div>
+      </div>
+    </Router>
+  );
+}
+
+export default App;

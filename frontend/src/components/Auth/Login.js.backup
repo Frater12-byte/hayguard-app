@@ -1,0 +1,40 @@
+import React, { useState } from 'react';
+
+const Login = ({ onLogin }) => {
+  const [credentials, setCredentials] = useState({
+    email: '',
+    password: ''
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Demo credentials
+  const demoCredentials = {
+    email: 'demo@hayguard.com',
+    password: 'demo123'
+  };
+
+  const handleInputChange = (field, value) => {
+    setCredentials(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    setError(''); // Clear error when user types
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+
+    try {
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Check demo credentials
+      if (credentials.email === demoCredentials.email && 
+          credentials.password === demoCredentials.password) {
+        const result = await onLogin(credentials.email, credentials.password);
+        if (!result.success) {
+          setError(result.error);
+        }
