@@ -30,19 +30,28 @@ const transporter = nodemailer.createTransport({
 });
 
 // Authentication middleware
+// Authentication middleware
 const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
 
   if (!token) {
     return res.sendStatus(401);
   }
 
+  // Allow demo token for development
+  if (token === "demo-token") {
+    req.user = { userId: 1, email: "demo@hayguard.com" };
+    return next();
+  }
+
+  // Verify JWT tokens
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
     if (err) return res.sendStatus(403);
     req.user = user;
     next();
   });
+};  });
 };
 
 // Routes
