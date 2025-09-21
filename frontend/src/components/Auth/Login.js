@@ -2,164 +2,279 @@ import React, { useState } from 'react';
 import './Login.css';
 
 const Login = ({ onLogin }) => {
-  const [formData, setFormData] = useState({
+  const [credentials, setCredentials] = useState({
     email: '',
     password: ''
   });
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showRegister, setShowRegister] = useState(false);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
+  const handleInputChange = (field, value) => {
+    setCredentials(prev => ({
       ...prev,
-      [name]: value
+      [field]: value
     }));
-    // Clear error when user starts typing
-    if (error) setError('');
+  };
+
+  const handleDemoLogin = () => {
+    setCredentials({
+      email: 'demo@hayguard.com',
+      password: 'demo123'
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setIsLoading(true);
     setError('');
 
     try {
-      const result = await onLogin(formData.email, formData.password);
-      if (!result.success) {
-        setError(result.error);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (credentials.email === 'demo@hayguard.com' && credentials.password === 'demo123') {
+        const result = await onLogin(credentials.email, credentials.password);
+        if (!result.success) {
+          setError(result.error);
+        }
+      } else {
+        setError('Invalid email or password. Use demo@hayguard.com / demo123 for demo access.');
       }
     } catch (err) {
       setError('Login failed. Please try again.');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  return (
-    <div className="login-container">
-      <div className="login-background">
-        <div className="background-pattern"></div>
-      </div>
-      
-      <div className="login-content">
-        <div className="login-form-container">
-          <div className="login-header">
-            <div className="logo-container">
-              <div className="logo-icon">
-                <svg viewBox="0 0 100 100" fill="currentColor">
-                  <path d="M50 10 L30 40 L50 40 L50 60 L70 30 L50 30 L50 10 Z" fill="#F4C430"/>
-                  <circle cx="50" cy="75" r="8" fill="#8B4513"/>
-                  <path d="M20 85 Q50 75 80 85 Q50 95 20 85 Z" fill="#F4C430"/>
-                </svg>
-              </div>
-              <h1>HayGuard</h1>
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    // Registration logic would go here
+    setError('Registration feature coming soon. Use demo account for now.');
+  };
+
+  if (showRegister) {
+    return (
+      <div className="login-container">
+        <div className="login-split">
+          <div className="login-left">
+            <div className="login-branding">
+              <img src="/logo.png" alt="HayGuard" className="login-logo-proper" />
+              <p className="tagline">Smart hay monitoring for modern farms</p>
             </div>
-            <p>Smart Farm Management System</p>
+
+            <div className="features-section">
+              <h2>Join the Future of Farming</h2>
+              <div className="feature-list">
+                <div className="feature-item">
+                  <div className="feature-icon">🌡️</div>
+                  <div className="feature-content">
+                    <h3>Temperature Monitoring</h3>
+                    <p>Real-time alerts prevent spontaneous combustion</p>
+                  </div>
+                </div>
+                
+                <div className="feature-item">
+                  <div className="feature-icon">💧</div>
+                  <div className="feature-content">
+                    <h3>Moisture Detection</h3>
+                    <p>Optimal moisture levels ensure hay quality</p>
+                  </div>
+                </div>
+                
+                <div className="feature-item">
+                  <div className="feature-icon">📊</div>
+                  <div className="feature-content">
+                    <h3>Analytics Dashboard</h3>
+                    <p>Comprehensive insights into storage conditions</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="login-form">
-            <div className="form-group">
-              <label htmlFor="email" className="form-label">Email Address</label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className="form-input"
-                placeholder="Enter your email"
-                required
-                disabled={loading}
-              />
-            </div>
+          <div className="login-right">
+            <div className="login-form-container">
+              <form onSubmit={handleRegister} className="login-form">
+                <h2>Create Your Account</h2>
+                
+                {error && <div className="error-message">{error}</div>}
+                
+                <div className="form-group">
+                  <label htmlFor="farmName">Farm Name</label>
+                  <input
+                    id="farmName"
+                    type="text"
+                    placeholder="Enter your farm name"
+                    required
+                  />
+                </div>
 
-            <div className="form-group">
-              <label htmlFor="password" className="form-label">Password</label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                className="form-input"
-                placeholder="Enter your password"
-                required
-                disabled={loading}
-              />
-            </div>
+                <div className="form-group">
+                  <label htmlFor="fullName">Full Name</label>
+                  <input
+                    id="fullName"
+                    type="text"
+                    placeholder="Enter your full name"
+                    required
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="email">Email Address</label>
+                  <input
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    required
+                  />
+                </div>
 
-            {error && (
-              <div className="error-message">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
-                </svg>
-                {error}
-              </div>
-            )}
+                <div className="form-group">
+                  <label htmlFor="password">Password</label>
+                  <input
+                    id="password"
+                    type="password"
+                    placeholder="Create a password"
+                    required
+                  />
+                </div>
 
-            <button type="submit" className="login-button" disabled={loading}>
-              {loading ? (
-                <>
-                  <div className="spinner"></div>
-                  Signing In...
-                </>
-              ) : (
-                <>
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M10 17l5-5-5-5v10z"/>
-                  </svg>
+                <button type="submit" className="login-btn">
+                  Create Account
+                </button>
+              </form>
+
+              <div className="login-footer">
+                <p>Already have an account?</p>
+                <button 
+                  type="button" 
+                  className="switch-form-btn"
+                  onClick={() => setShowRegister(false)}
+                >
                   Sign In
-                </>
-              )}
-            </button>
-          </form>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-          <div className="login-footer">
-            <p>Demo Credentials:</p>
-            <div className="demo-credentials">
-              <span>Email: demo@hayguard.com</span>
-              <span>Password: demo123</span>
+  return (
+    <div className="login-container">
+      <div className="login-split">
+        <div className="login-left">
+          <div className="login-branding">
+            <img src="/logo.png" alt="HayGuard" className="login-logo-proper" />
+            <p className="tagline">Smart hay monitoring for modern farms</p>
+          </div>
+
+          <div className="features-section">
+            <h2>Protect Your Harvest</h2>
+            <div className="feature-list">
+              <div className="feature-item">
+                <div className="feature-icon">🌡️</div>
+                <div className="feature-content">
+                  <h3>Temperature Monitoring</h3>
+                  <p>Real-time alerts prevent spontaneous combustion and quality loss</p>
+                </div>
+              </div>
+              
+              <div className="feature-item">
+                <div className="feature-icon">💧</div>
+                <div className="feature-content">
+                  <h3>Moisture Detection</h3>
+                  <p>Optimal moisture levels ensure hay quality and prevent mold</p>
+                </div>
+              </div>
+              
+              <div className="feature-item">
+                <div className="feature-icon">📊</div>
+                <div className="feature-content">
+                  <h3>Analytics Dashboard</h3>
+                  <p>Comprehensive insights into your hay storage conditions</p>
+                </div>
+              </div>
+              
+              <div className="feature-item">
+                <div className="feature-icon">📱</div>
+                <div className="feature-content">
+                  <h3>Mobile Alerts</h3>
+                  <p>Instant notifications keep you informed wherever you are</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="login-features">
-          <h2>Manage Your Farm with Confidence</h2>
-          <div className="features-list">
-            <div className="feature-item">
-              <div className="feature-icon">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
-                </svg>
-              </div>
-              <div>
-                <h3>Real-time Analytics</h3>
-                <p>Monitor crop yields, weather patterns, and farm performance with comprehensive analytics</p>
-              </div>
-            </div>
-            
-            <div className="feature-item">
-              <div className="feature-icon">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
-                </svg>
-              </div>
-              <div>
-                <h3>Smart Alerts</h3>
-                <p>Get instant notifications about weather changes, irrigation needs, and pest threats</p>
+        <div className="login-right">
+          <div className="login-form-container">
+            <div className="demo-banner">
+              <div className="demo-icon">🎯</div>
+              <div className="demo-content">
+                <h3>Try the Demo</h3>
+                <p>Experience HayGuard with our demo account</p>
+                <div className="demo-credentials">
+                  <div><strong>Email:</strong> demo@hayguard.com</div>
+                  <div><strong>Password:</strong> demo123</div>
+                </div>
+                <button className="demo-fill-btn" onClick={handleDemoLogin}>
+                  Use Demo Credentials
+                </button>
               </div>
             </div>
-            
-            <div className="feature-item">
-              <div className="feature-icon">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M16 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 1c-1.33 0-4 .67-4 2v2h8v-2c0-1.33-2.67-2-4-2zM8 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 1c-1.33 0-4 .67-4 2v2h8v-2c0-1.33-2.67-2-4-2z"/>
-                </svg>
+
+            <form onSubmit={handleSubmit} className="login-form">
+              <h2>Sign In to Your Account</h2>
+              
+              {error && <div className="error-message">{error}</div>}
+              
+              <div className="form-group">
+                <label htmlFor="email">Email Address</label>
+                <input
+                  id="email"
+                  type="email"
+                  value={credentials.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  placeholder="Enter your email"
+                  required
+                />
               </div>
-              <div>
-                <h3>Team Management</h3>
-                <p>Coordinate with your team, assign tasks, and track farm activities seamlessly</p>
+
+              <div className="form-group">
+                <label htmlFor="password">Password</label>
+                <input
+                  id="password"
+                  type="password"
+                  value={credentials.password}
+                  onChange={(e) => handleInputChange('password', e.target.value)}
+                  placeholder="Enter your password"
+                  required
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                className="login-btn"
+                disabled={isLoading || !credentials.email || !credentials.password}
+              >
+                {isLoading ? 'Signing In...' : 'Sign In'}
+              </button>
+            </form>
+
+            <div className="login-footer">
+              <button type="button" className="forgot-link">Forgot your password?</button>
+              <div className="register-section">
+                <p>Don't have an account?</p>
+                <button 
+                  type="button" 
+                  className="switch-form-btn"
+                  onClick={() => setShowRegister(true)}
+                >
+                  Create Account
+                </button>
               </div>
             </div>
           </div>
