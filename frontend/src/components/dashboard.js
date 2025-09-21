@@ -15,7 +15,7 @@ const Dashboard = ({ user }) => {
     }
   };
   
-  React.useEffect(() => {
+  useEffect(() => {
     testAPI();
   }, []);  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [alerts, setAlerts] = useState([]);
