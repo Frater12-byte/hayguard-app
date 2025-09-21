@@ -1,8 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { apiService } from '../../services/apiService';
 import './SensorManagement.css';
 
 const SensorManagement = () => {
-  const [sensors, setSensors] = useState([
+  const [sensors, setSensors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSensor, setSelectedSensor] = useState(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newSensor, setNewSensor] = useState({
+    name: '',
+    location: '',
+    balesMonitored: ''
+  });
+
+  // Mock data as fallback
+  const mockSensors = [
     {
       id: 'HB-2024-001',
       name: 'North Field Sensor A',
@@ -39,40 +52,29 @@ const SensorManagement = () => {
       balesMonitored: 203,
       installDate: '2024-05-20'
     }
-  ]);
+  ];
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSensor, setSelectedSensor] = useState(null);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newSensor, setNewSensor] = useState({
-    name: '',
-    location: '',
-    balesMonitored: ''
-  });
+  // Load sensors from backend on component mount
+  useEffect(() => {
+    const loadSensors = async () => {
+      try {
+        setLoading(true);
+        const sensorsData = await apiService.getSensors();
+        setSensors(sensorsData);
+      } catch (error) {
+        console.error('Failed to load sensors from backend:', error);
+        // Use mock data as fallback
+        setSensors(mockSensors);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadSensors();
+  }, []);
 
-  // Filter sensors based on search term
-  const filteredSensors = sensors.filter(sensor =>
-    sensor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    sensor.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    sensor.location.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Mock historical data for selected sensor
-  const getHistoricalData = (sensorId) => {
-    return [
-      { date: '2025-01-15', time: '14:30', temperature: 24.5, moisture: 15.2 },
-      { date: '2025-01-15', time: '14:00', temperature: 24.1, moisture: 15.0 },
-      { date: '2025-01-15', time: '13:30', temperature: 23.8, moisture: 14.9 },
-      { date: '2025-01-15', time: '13:00', temperature: 23.5, moisture: 14.8 },
-      { date: '2025-01-15', time: '12:30', temperature: 23.2, moisture: 14.7 },
-      { date: '2025-01-15', time: '12:00', temperature: 22.9, moisture: 14.6 },
-      { date: '2025-01-15', time: '11:30', temperature: 22.7, moisture: 14.5 },
-      { date: '2025-01-15', time: '11:00', temperature: 22.5, moisture: 14.4 }
-    ];
-  };
-
-  const handleAddSensor = (e) => {
+  const handleAddSensor = async (e) => {
     e.preventDefault();
+    
     const sensorId = `HB-2024-${String(sensors.length + 1).padStart(3, '0')}`;
     const newSensorData = {
       id: sensorId,
@@ -82,126 +84,59 @@ const SensorManagement = () => {
       temperature: 22.0,
       moisture: 14.0,
       batteryLevel: 100,
-      lastReading: new Date().toISOString().replace('T', ' ').slice(0, 19),
-      balesMonitored: parseInt(newSensor.balesMonitored),
+      lastReading: new Date().toISOString().slice(0, 19).replace('T', ' '),
+      balesMonitored: parseInt(newSensor.balesMonitored) || 0,
       installDate: new Date().toISOString().split('T')[0]
     };
-    
-    setSensors([...sensors, newSensorData]);
-    setNewSensor({ name: '', location: '', balesMonitored: '' });
-    setShowAddForm(false);
-  };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'active': return '#28a745';
-      case 'warning': return '#ffc107';
-      case 'critical': return '#dc3545';
-      case 'offline': return '#6c757d';
-      default: return '#6c757d';
+    try {
+      // Try to save to backend first
+      await apiService.createSensor(newSensorData);
+      
+      // If successful, reload sensors from backend
+      const updatedSensors = await apiService.getSensors();
+      setSensors(updatedSensors);
+      
+      // Reset form
+      setShowAddForm(false);
+      setNewSensor({ name: '', location: '', balesMonitored: '' });
+      
+      console.log('Sensor added successfully to backend');
+    } catch (error) {
+      console.error('Failed to add sensor to backend:', error);
+      
+      // Fallback: Add to local state only
+      setSensors([...sensors, newSensorData]);
+      setShowAddForm(false);
+      setNewSensor({ name: '', location: '', balesMonitored: '' });
+      
+      alert('Sensor added locally (backend connection failed)');
     }
   };
 
-  if (selectedSensor) {
-    const historicalData = getHistoricalData(selectedSensor.id);
-    
+  const getSensorData = (sensorId) => {
+    return [
+      { date: '2025-01-15', time: '14:30', temperature: 24.5, moisture: 15.2 },
+      { date: '2025-01-15', time: '14:00', temperature: 24.2, moisture: 15.0 },
+      { date: '2025-01-15', time: '13:30', temperature: 23.8, moisture: 14.8 },
+      { date: '2025-01-15', time: '13:00', temperature: 23.5, moisture: 14.6 },
+      { date: '2025-01-15', time: '12:30', temperature: 23.2, moisture: 14.4 },
+      { date: '2025-01-15', time: '12:00', temperature: 22.9, moisture: 14.2 },
+      { date: '2025-01-15', time: '11:30', temperature: 22.7, moisture: 14.5 },
+      { date: '2025-01-15', time: '11:00', temperature: 22.5, moisture: 14.4 }
+    ];
+  };
+
+  const filteredSensors = sensors.filter(sensor =>
+    sensor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    sensor.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    sensor.id.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading) {
     return (
-      <div className="sensor-management">
-        <div className="sensor-detail-header">
-          <button 
-            className="back-btn"
-            onClick={() => setSelectedSensor(null)}
-          >
-            ← Back to Sensors
-          </button>
-          <h1>Sensor Details: {selectedSensor.name}</h1>
-        </div>
-
-        <div className="sensor-detail-grid">
-          <div className="sensor-info-card">
-            <h3>Sensor Information</h3>
-            <div className="info-grid">
-              <div className="info-item">
-                <label>Sensor ID:</label>
-                <span>{selectedSensor.id}</span>
-              </div>
-              <div className="info-item">
-                <label>Location:</label>
-                <span>{selectedSensor.location}</span>
-              </div>
-              <div className="info-item">
-                <label>Status:</label>
-                <span 
-                  className="status-badge"
-                  style={{ backgroundColor: getStatusColor(selectedSensor.status) }}
-                >
-                  {selectedSensor.status.toUpperCase()}
-                </span>
-              </div>
-              <div className="info-item">
-                <label>Bales Monitored:</label>
-                <span>{selectedSensor.balesMonitored}</span>
-              </div>
-              <div className="info-item">
-                <label>Install Date:</label>
-                <span>{selectedSensor.installDate}</span>
-              </div>
-              <div className="info-item">
-                <label>Battery Level:</label>
-                <span>{selectedSensor.batteryLevel}%</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="current-readings-card">
-            <h3>Current Readings</h3>
-            <div className="readings-grid">
-              <div className="reading-item">
-                <div className="reading-icon">🌡️</div>
-                <div className="reading-content">
-                  <div className="reading-value">{selectedSensor.temperature}°C</div>
-                  <div className="reading-label">Temperature</div>
-                </div>
-              </div>
-              <div className="reading-item">
-                <div className="reading-icon">💧</div>
-                <div className="reading-content">
-                  <div className="reading-value">{selectedSensor.moisture}%</div>
-                  <div className="reading-label">Moisture</div>
-                </div>
-              </div>
-            </div>
-            <div className="last-reading">
-              Last reading: {selectedSensor.lastReading}
-            </div>
-          </div>
-        </div>
-
-        <div className="historical-data-section">
-          <h3>Historical Data (Last 8 Readings)</h3>
-          <div className="data-table-container">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Time</th>
-                  <th>Temperature (°C)</th>
-                  <th>Moisture (%)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historicalData.map((data, index) => (
-                  <tr key={index}>
-                    <td>{data.date}</td>
-                    <td>{data.time}</td>
-                    <td>{data.temperature}</td>
-                    <td>{data.moisture}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+      <div className="sensor-management loading">
+        <div className="loading-spinner">Loading sensors...</div>
       </div>
     );
   }
@@ -210,140 +145,211 @@ const SensorManagement = () => {
     <div className="sensor-management">
       <div className="sensor-header">
         <h1>Sensor Management</h1>
-        <div className="header-actions">
-          <div className="search-container">
-            <input
-              type="text"
-              placeholder="Search sensors by name, ID, or location..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-          </div>
-          <button 
-            className="add-sensor-btn"
-            onClick={() => setShowAddForm(true)}
-          >
-            + Add New Sensor
-          </button>
+        <button 
+          className="add-sensor-btn"
+          onClick={() => setShowAddForm(true)}
+        >
+          + Add New Sensor
+        </button>
+      </div>
+
+      <div className="sensor-controls">
+        <div className="search-bar">
+          <input
+            type="text"
+            placeholder="Search sensors by name, location, or ID..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <div className="sensor-stats">
+          <span className="stat">Total: {sensors.length}</span>
+          <span className="stat active">Active: {sensors.filter(s => s.status === 'active').length}</span>
+          <span className="stat warning">Warning: {sensors.filter(s => s.status === 'warning').length}</span>
         </div>
       </div>
 
-      {showAddForm && (
-        <div className="add-sensor-form">
-          <div className="form-header">
-            <h3>Add New Sensor</h3>
-            <button 
-              className="close-btn"
-              onClick={() => setShowAddForm(false)}
-            >
-              ×
-            </button>
-          </div>
-          <form onSubmit={handleAddSensor}>
-            <div className="form-grid">
-              <div className="form-group">
-                <label htmlFor="sensorName">Sensor Name</label>
-                <input
-                  id="sensorName"
-                  type="text"
-                  value={newSensor.name}
-                  onChange={(e) => setNewSensor({...newSensor, name: e.target.value})}
-                  placeholder="e.g., North Field Sensor D"
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="sensorLocation">Location</label>
-                <input
-                  id="sensorLocation"
-                  type="text"
-                  value={newSensor.location}
-                  onChange={(e) => setNewSensor({...newSensor, location: e.target.value})}
-                  placeholder="e.g., North Field D"
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="balesMonitored">Number of Bales to Monitor</label>
-                <input
-                  id="balesMonitored"
-                  type="number"
-                  value={newSensor.balesMonitored}
-                  onChange={(e) => setNewSensor({...newSensor, balesMonitored: e.target.value})}
-                  placeholder="e.g., 150"
-                  min="1"
-                  required
-                />
-              </div>
-            </div>
-            <div className="form-actions">
-              <button type="button" onClick={() => setShowAddForm(false)}>
-                Cancel
-              </button>
-              <button type="submit" className="submit-btn">
-                Add Sensor
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
       <div className="sensors-grid">
         {filteredSensors.map(sensor => (
-          <div key={sensor.id} className="sensor-card">
+          <div key={sensor.id} className={`sensor-card ${sensor.status}`}>
             <div className="sensor-card-header">
-              <div className="sensor-title">
-                <h3>{sensor.name}</h3>
-                <span className="sensor-id">{sensor.id}</span>
-              </div>
-              <div 
-                className="status-indicator"
-                style={{ backgroundColor: getStatusColor(sensor.status) }}
-              ></div>
+              <h3>{sensor.name}</h3>
+              <span className={`status-badge ${sensor.status}`}>
+                {sensor.status}
+              </span>
             </div>
             
-            <div className="sensor-location">
-              📍 {sensor.location}
+            <div className="sensor-info">
+              <div className="info-item">
+                <span className="label">ID:</span>
+                <span className="value">{sensor.id}</span>
+              </div>
+              <div className="info-item">
+                <span className="label">Location:</span>
+                <span className="value">{sensor.location}</span>
+              </div>
+              <div className="info-item">
+                <span className="label">Temperature:</span>
+                <span className="value">{sensor.temperature}°C</span>
+              </div>
+              <div className="info-item">
+                <span className="label">Moisture:</span>
+                <span className="value">{sensor.moisture}%</span>
+              </div>
+              <div className="info-item">
+                <span className="label">Battery:</span>
+                <span className="value">{sensor.batteryLevel}%</span>
+              </div>
+              <div className="info-item">
+                <span className="label">Bales:</span>
+                <span className="value">{sensor.balesMonitored}</span>
+              </div>
+              <div className="info-item">
+                <span className="label">Last Reading:</span>
+                <span className="value">{sensor.lastReading}</span>
+              </div>
             </div>
-            
-            <div className="sensor-readings">
-              <div className="reading">
-                <span className="reading-label">Temperature</span>
-                <span className="reading-value">{sensor.temperature}°C</span>
-              </div>
-              <div className="reading">
-                <span className="reading-label">Moisture</span>
-                <span className="reading-value">{sensor.moisture}%</span>
-              </div>
-              <div className="reading">
-                <span className="reading-label">Battery</span>
-                <span className="reading-value">{sensor.batteryLevel}%</span>
-              </div>
-              <div className="reading">
-                <span className="reading-label">Bales</span>
-                <span className="reading-value">{sensor.balesMonitored}</span>
-              </div>
-            </div>
-            
-            <div className="sensor-footer">
-              <div className="last-reading">
-                Last: {sensor.lastReading}
-              </div>
+
+            <div className="sensor-actions">
               <button 
-                className="view-details-btn"
+                className="btn-secondary"
                 onClick={() => setSelectedSensor(sensor)}
               >
                 View Details
               </button>
+              <button className="btn-primary">Edit</button>
             </div>
           </div>
         ))}
       </div>
 
-      {filteredSensors.length === 0 && searchTerm && (
-        <div className="no-results">
-          <p>No sensors found matching "{searchTerm}"</p>
+      {showAddForm && (
+        <div className="modal-overlay">
+          <div className="add-sensor-modal">
+            <div className="modal-header">
+              <h2>Add New Sensor</h2>
+              <button 
+                className="close-btn"
+                onClick={() => setShowAddForm(false)}
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleAddSensor}>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label htmlFor="sensorName">Sensor Name</label>
+                  <input
+                    id="sensorName"
+                    type="text"
+                    value={newSensor.name}
+                    onChange={(e) => setNewSensor({...newSensor, name: e.target.value})}
+                    placeholder="e.g., North Field Sensor D"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="sensorLocation">Location</label>
+                  <input
+                    id="sensorLocation"
+                    type="text"
+                    value={newSensor.location}
+                    onChange={(e) => setNewSensor({...newSensor, location: e.target.value})}
+                    placeholder="e.g., North Field D"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="balesMonitored">Bales Monitored</label>
+                  <input
+                    id="balesMonitored"
+                    type="number"
+                    value={newSensor.balesMonitored}
+                    onChange={(e) => setNewSensor({...newSensor, balesMonitored: e.target.value})}
+                    placeholder="e.g., 150"
+                    min="0"
+                  />
+                </div>
+              </div>
+              
+              <div className="form-actions">
+                <button type="button" onClick={() => setShowAddForm(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary">
+                  Add Sensor
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {selectedSensor && (
+        <div className="modal-overlay">
+          <div className="sensor-details-modal">
+            <div className="modal-header">
+              <h2>Sensor Details - {selectedSensor.name}</h2>
+              <button 
+                className="close-btn"
+                onClick={() => setSelectedSensor(null)}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="sensor-details-content">
+              <div className="sensor-overview">
+                <h3>Overview</h3>
+                <div className="details-grid">
+                  <div className="detail-item">
+                    <span className="label">Sensor ID:</span>
+                    <span className="value">{selectedSensor.id}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">Location:</span>
+                    <span className="value">{selectedSensor.location}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">Install Date:</span>
+                    <span className="value">{selectedSensor.installDate}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">Status:</span>
+                    <span className={`value status ${selectedSensor.status}`}>
+                      {selectedSensor.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="sensor-readings">
+                <h3>Recent Readings</h3>
+                <div className="readings-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Temperature</th>
+                        <th>Moisture</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {getSensorData(selectedSensor.id).map((reading, index) => (
+                        <tr key={index}>
+                          <td>{reading.date}</td>
+                          <td>{reading.time}</td>
+                          <td>{reading.temperature}°C</td>
+                          <td>{reading.moisture}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
