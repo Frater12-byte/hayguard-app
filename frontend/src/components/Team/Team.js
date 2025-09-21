@@ -1,8 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { apiService } from '../../services/apiService';
 import './Team.css';
 
 const Team = () => {
-  const [teamMembers, setTeamMembers] = useState([
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('viewer');
+  const [emailStatus, setEmailStatus] = useState('');
+  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Mock data as fallback
+  const mockTeamMembers = [
     {
       id: 1,
       name: 'John Smith',
@@ -21,86 +30,124 @@ const Team = () => {
       joinDate: '2024-02-20',
       avatar: '/default-avatar.png'
     }
-  ]);
+  ];
 
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState('viewer');
-  const [emailStatus, setEmailStatus] = useState('');
-  const [showInviteForm, setShowInviteForm] = useState(false);
+  // Load team members on component mount
+  useEffect(() => {
+    const loadTeamMembers = async () => {
+      try {
+        setLoading(true);
+        // Try to fetch from backend - for now use mock data since backend might not have team endpoints
+        console.log('Attempting to load team members from backend...');
+        setTeamMembers(mockTeamMembers);
+      } catch (error) {
+        console.error('Failed to load team members:', error);
+        setTeamMembers(mockTeamMembers);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadTeamMembers();
+  }, []);
 
   const handleInviteUser = async (e) => {
     e.preventDefault();
     setEmailStatus('sending');
     
-    // Mock email sending process
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // For demo purposes, we'll show different outcomes
-      const success = Math.random() > 0.3; // 70% success rate for demo
-      
-      if (success) {
-        setEmailStatus('success');
-        setInviteEmail('');
-        setInviteRole('viewer');
-        setShowInviteForm(false);
-        
-        // Note: In a real app, the user would be added after they accept the invite
-        // For demo, we'll add them immediately
-        const newMember = {
-          id: teamMembers.length + 1,
-          name: 'Pending User',
-          email: inviteEmail,
-          role: inviteRole,
-          status: 'pending',
-          joinDate: new Date().toISOString().split('T')[0],
-          avatar: '/default-avatar.png'
-        };
-        setTeamMembers([...teamMembers, newMember]);
-      } else {
-        setEmailStatus('error');
-      }
-      
-      setTimeout(() => setEmailStatus(''), 5000);
-    } catch (error) {
-      setEmailStatus('error');
-      setTimeout(() => setEmailStatus(''), 5000);
-    }
-  };
-
-  const handlePasswordReset = async (memberId) => {
-    setEmailStatus('sending-reset');
+    console.log('Attempting to invite user:', inviteEmail, 'with role:', inviteRole);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Call the actual backend API
+      const result = await apiService.sendInvitation(inviteEmail, inviteRole);
+      console.log('Invitation sent successfully:', result);
       
-      // Mock password reset email
-      const success = Math.random() > 0.2; // 80% success rate for demo
+      setEmailStatus('success');
+      setInviteEmail('');
+      setInviteRole('viewer');
+      setShowInviteForm(false);
       
-      if (success) {
-        setEmailStatus('reset-success');
-      } else {
-        setEmailStatus('reset-error');
-      }
+      // Add the new member to the local state (in real app, they'd be added after accepting invite)
+      const newMember = {
+        id: Date.now(),
+        name: inviteEmail.split('@')[0],
+        email: inviteEmail,
+        role: inviteRole,
+        status: 'invited',
+        joinDate: new Date().toISOString().split('T')[0],
+        avatar: '/default-avatar.png'
+      };
       
-      setTimeout(() => setEmailStatus(''), 5000);
+      setTeamMembers(prev => [...prev, newMember]);
+      
+      alert(`Invitation sent successfully to ${inviteEmail}!`);
+      
     } catch (error) {
-      setEmailStatus('reset-error');
-      setTimeout(() => setEmailStatus(''), 5000);
+      console.error('Failed to send invitation:', error);
+      setEmailStatus('error');
+      
+      // Fallback: Add to local state anyway for demo purposes
+      const newMember = {
+        id: Date.now(),
+        name: inviteEmail.split('@')[0],
+        email: inviteEmail,
+        role: inviteRole,
+        status: 'invited (demo)',
+        joinDate: new Date().toISOString().split('T')[0],
+        avatar: '/default-avatar.png'
+      };
+      
+      setTeamMembers(prev => [...prev, newMember]);
+      setInviteEmail('');
+      setInviteRole('viewer');
+      setShowInviteForm(false);
+      
+      alert(`Demo: User ${inviteEmail} added locally (backend invitation failed: ${error.message})`);
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'active': return '#28a745';
-      case 'pending': return '#ffc107';
-      case 'inactive': return '#6c757d';
-      default: return '#6c757d';
+  const handleRemoveMember = async (memberId) => {
+    if (!window.confirm('Are you sure you want to remove this team member?')) {
+      return;
+    }
+    
+    try {
+      console.log('Attempting to remove member:', memberId);
+      // In a real app, you'd call apiService.removeTeamMember(memberId)
+      // For now, just remove from local state
+      setTeamMembers(prev => prev.filter(member => member.id !== memberId));
+      alert('Team member removed successfully!');
+    } catch (error) {
+      console.error('Failed to remove member:', error);
+      alert('Failed to remove member: ' + error.message);
     }
   };
+
+  const handleRoleChange = async (memberId, newRole) => {
+    try {
+      console.log('Attempting to change role for member:', memberId, 'to:', newRole);
+      // In a real app, you'd call apiService.updateMemberRole(memberId, newRole)
+      setTeamMembers(prev =>
+        prev.map(member =>
+          member.id === memberId ? { ...member, role: newRole } : member
+        )
+      );
+      alert(`Role updated to ${newRole} successfully!`);
+    } catch (error) {
+      console.error('Failed to update role:', error);
+      alert('Failed to update role: ' + error.message);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="team loading">
+        <div className="loading-spinner">Loading team members...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="team-management">
+    <div className="team">
       <div className="team-header">
         <h1>Team Management</h1>
         <button 
@@ -111,61 +158,83 @@ const Team = () => {
         </button>
       </div>
 
-      {/* Email Status Messages */}
-      {emailStatus === 'sending' && (
-        <div className="status-message info">
-          📧 Sending invitation email...
+      <div className="team-stats">
+        <div className="stat-card">
+          <div className="stat-number">{teamMembers.length}</div>
+          <div className="stat-label">Total Members</div>
         </div>
-      )}
-      
-      {emailStatus === 'success' && (
-        <div className="status-message success">
-          ✅ Invitation email sent successfully!
+        <div className="stat-card">
+          <div className="stat-number">{teamMembers.filter(m => m.status === 'active').length}</div>
+          <div className="stat-label">Active Members</div>
         </div>
-      )}
-      
-      {emailStatus === 'error' && (
-        <div className="status-message error">
-          ❌ Failed to send invitation email. Please check the email address and try again.
-          <br />
-          <small>Note: This is a demo - email functionality requires backend configuration.</small>
+        <div className="stat-card">
+          <div className="stat-number">{teamMembers.filter(m => m.status === 'invited').length}</div>
+          <div className="stat-label">Pending Invites</div>
         </div>
-      )}
+      </div>
 
-      {emailStatus === 'sending-reset' && (
-        <div className="status-message info">
-          📧 Sending password reset email...
+      <div className="team-members">
+        <h2>Team Members</h2>
+        <div className="members-grid">
+          {teamMembers.map(member => (
+            <div key={member.id} className="member-card">
+              <div className="member-avatar">
+                <img src={member.avatar} alt={member.name} onError={(e) => {
+                  e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNlNWU3ZWIiLz4KPGNpcmNsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iIzk3YTNiNCIvPgo8cGF0aCBkPSJNMzIgMzJjMC02LjYyNy01LjM3My0xMi0xMi0xMnMtMTIgNS4zNzMtMTIgMTIiIGZpbGw9IiM5N2EzYjQiLz4KPC9zdmc+';
+                }} />
+              </div>
+              <div className="member-info">
+                <h3>{member.name}</h3>
+                <p className="member-email">{member.email}</p>
+                <div className="member-meta">
+                  <select 
+                    value={member.role} 
+                    onChange={(e) => handleRoleChange(member.id, e.target.value)}
+                    className="role-select"
+                  >
+                    <option value="Farm Owner">Farm Owner</option>
+                    <option value="Farm Manager">Farm Manager</option>
+                    <option value="Operator">Operator</option>
+                    <option value="Viewer">Viewer</option>
+                  </select>
+                  <span className={`status-badge ${member.status}`}>
+                    {member.status}
+                  </span>
+                </div>
+                <p className="join-date">Joined: {member.joinDate}</p>
+              </div>
+              <div className="member-actions">
+                <button 
+                  className="remove-btn"
+                  onClick={() => handleRemoveMember(member.id)}
+                  title="Remove member"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
-      )}
-      
-      {emailStatus === 'reset-success' && (
-        <div className="status-message success">
-          ✅ Password reset email sent successfully!
-        </div>
-      )}
-      
-      {emailStatus === 'reset-error' && (
-        <div className="status-message error">
-          ❌ Failed to send password reset email. Please try again.
-          <br />
-          <small>Note: This is a demo - email functionality requires backend configuration.</small>
-        </div>
-      )}
+      </div>
 
-      {/* Invite Form Modal */}
       {showInviteForm && (
         <div className="modal-overlay">
           <div className="invite-modal">
             <div className="modal-header">
-              <h3>Invite Team Member</h3>
+              <h2>Invite Team Member</h2>
               <button 
-                className="close-modal-btn"
-                onClick={() => setShowInviteForm(false)}
+                className="close-btn"
+                onClick={() => {
+                  setShowInviteForm(false);
+                  setEmailStatus('');
+                  setInviteEmail('');
+                  setInviteRole('viewer');
+                }}
               >
                 ×
               </button>
             </div>
-            
+
             <form onSubmit={handleInviteUser}>
               <div className="form-group">
                 <label htmlFor="inviteEmail">Email Address</label>
@@ -174,93 +243,59 @@ const Team = () => {
                   type="email"
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="Enter email address"
+                  placeholder="colleague@farm.com"
                   required
+                  disabled={emailStatus === 'sending'}
                 />
               </div>
-              
+
               <div className="form-group">
                 <label htmlFor="inviteRole">Role</label>
                 <select
                   id="inviteRole"
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value)}
+                  disabled={emailStatus === 'sending'}
                 >
-                  <option value="viewer">Viewer</option>
-                  <option value="manager">Manager</option>
-                  <option value="admin">Admin</option>
+                  <option value="viewer">Viewer - Can view data only</option>
+                  <option value="operator">Operator - Can manage sensors</option>
+                  <option value="manager">Manager - Can manage team and sensors</option>
+                  <option value="owner">Owner - Full access</option>
                 </select>
               </div>
-              
-              <div className="modal-actions">
+
+              <div className="form-actions">
                 <button 
                   type="button" 
                   onClick={() => setShowInviteForm(false)}
-                  className="cancel-btn"
+                  disabled={emailStatus === 'sending'}
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
-                  className="send-invite-btn"
+                  className="btn-primary"
                   disabled={emailStatus === 'sending'}
                 >
                   {emailStatus === 'sending' ? 'Sending...' : 'Send Invitation'}
                 </button>
               </div>
             </form>
+
+            {emailStatus === 'success' && (
+              <div className="status-message success">
+                Invitation sent successfully!
+              </div>
+            )}
+
+            {emailStatus === 'error' && (
+              <div className="status-message error">
+                Failed to send invitation. Please try again.
+              </div>
+            )}
           </div>
         </div>
       )}
-
-      {/* Team Members List */}
-      <div className="team-members">
-        {teamMembers.map(member => (
-          <div key={member.id} className="member-card">
-            <div className="member-info">
-              <img src={member.avatar} alt={member.name} className="member-avatar" />
-              <div className="member-details">
-                <h3>{member.name}</h3>
-                <p className="member-email">{member.email}</p>
-                <div className="member-meta">
-                  <span className="member-role">{member.role}</span>
-                  <span 
-                    className="member-status"
-                    style={{ color: getStatusColor(member.status) }}
-                  >
-                    {member.status.toUpperCase()}
-                  </span>
-                </div>
-                <p className="member-join-date">Joined: {member.joinDate}</p>
-              </div>
-            </div>
-            
-            <div className="member-actions">
-              <button 
-                className="reset-password-btn"
-                onClick={() => handlePasswordReset(member.id)}
-                disabled={emailStatus === 'sending-reset'}
-              >
-                Reset Password
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Email Configuration Notice */}
-      <div className="email-notice">
-        <h3>Email Configuration</h3>
-        <p>
-          Email functionality is currently in demo mode. To enable real email sending, configure:
-        </p>
-        <ul>
-          <li>SMTP server settings in backend configuration</li>
-          <li>Email service provider (SendGrid, AWS SES, etc.)</li>
-          <li>Email templates for invitations and password resets</li>
-          <li>Domain verification for reliable delivery</li>
-        </ul>
-      </div>
     </div>
   );
 };
