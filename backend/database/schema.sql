@@ -86,7 +86,7 @@ CREATE TABLE invitations (
 
 -- Insert demo user
 INSERT INTO users (name, email, password_hash, profile_picture) VALUES 
-('Demo User', 'demo@hayguard.com', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '/default-avatar.png');
+('Demo User', 'hello@hayguard-app.com', '$2a$10$Iih1p.uKF6QvAn3M2SzlMOLzNWeOs8sqiHcNReRHr1WFyV7Ujgteq', '/default-avatar.png');
 
 -- Insert demo farm
 INSERT INTO farms (user_id, name, location, size, owner, phone, email, established, description) VALUES 
