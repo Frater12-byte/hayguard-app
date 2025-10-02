@@ -432,21 +432,7 @@ const Reports = () => {
 
   return (
     <div className="reports page-container">
-      {/* Header */}
-      <div className="reports-header">
-        <div className="reports-actions">
-          <button className="btn btn-secondary" onClick={exportToCSV}>
-            <Download size={16} />
-            Export CSV
-          </button>
-          <button className="btn btn-primary" onClick={exportToPDF}>
-            <Download size={16} />
-            Export TXT
-          </button>
-        </div>
-      </div>
-
-      {/* Filters */}
+      {/* Filters with inline download buttons */}
       <div className="reports-filters card">
         <div className="filter-group">
           <label>
@@ -478,6 +464,18 @@ const Reports = () => {
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Download buttons at the right */}
+        <div className="reports-actions">
+          <button className="btn btn-secondary btn-sm" onClick={exportToPDF}>
+            <Download size={16} />
+            Download TXT
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={exportToCSV}>
+            <Download size={16} />
+            Download CSV
+          </button>
         </div>
       </div>
 

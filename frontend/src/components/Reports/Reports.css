@@ -1,5 +1,5 @@
 /* ========================================
-   HayGuard Reports Component Styles
+   HayGuard Reports - Consistent Filter Styling
    ======================================== */
 
 :root {
@@ -57,20 +57,68 @@
   font-size: 14px;
 }
 
-/* Header */
-.reports-header {
+/* ============================================
+   FILTERS SECTION - Consistent with Sensors
+   ============================================ */
+
+.reports-filters {
   display: flex;
-  justify-content: flex-end;
-  align-items: center;
+  gap: 12px;
   margin-bottom: var(--spacing-2xl);
+  padding: 16px;
+  background: var(--white);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  flex-wrap: wrap;
+  border: 1px solid var(--border-light);
+  align-items: center;
 }
 
+/* Remove filter group labels - inline controls only */
+.filter-group {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex: 1;
+  min-width: 150px;
+  max-width: 200px;
+}
+
+.filter-group label {
+  display: none; /* Hide labels for consistency */
+}
+
+.filter-select {
+  padding: 10px 16px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  background: var(--white);
+  cursor: pointer;
+  transition: border-color 0.2s;
+  width: 100%;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+  color: var(--text-secondary);
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--primary-yellow);
+  box-shadow: 0 0 0 3px rgba(244, 196, 48, 0.1);
+}
+
+/* Export Buttons Container - stays at right */
 .reports-actions {
   display: flex;
-  gap: var(--spacing-md);
+  gap: 8px;
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
-/* Buttons */
+/* CTA Buttons - inside filter box at right */
 .btn {
   padding: 10px 20px;
   border: none;
@@ -84,6 +132,7 @@
   justify-content: center;
   gap: var(--spacing-sm);
   white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .btn-primary {
@@ -107,54 +156,26 @@
   transform: translateY(-1px);
 }
 
-/* Filters */
-.reports-filters {
-  display: flex;
-  gap: var(--spacing-2xl);
-  margin-bottom: var(--spacing-2xl);
-  padding: var(--spacing-xl);
-  background: var(--white);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  flex-wrap: wrap;
-  border: 1px solid var(--border-light);
-}
+/* Mobile Responsive */
+@media (max-width: 1024px) {
+  .reports-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
 
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-  min-width: 200px;
-}
+  .filter-group {
+    min-width: 100%;
+    max-width: 100%;
+  }
 
-.filter-group label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-}
+  .reports-actions {
+    width: 100%;
+    margin-left: 0;
+  }
 
-.filter-select {
-  padding: 10px 16px;
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  background: var(--white);
-  cursor: pointer;
-  transition: border-color 0.2s;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  padding-right: 36px;
-}
-
-.filter-select:focus {
-  outline: none;
-  border-color: var(--primary-yellow);
-  box-shadow: 0 0 0 3px rgba(244, 196, 48, 0.1);
+  .btn {
+    flex: 1;
+  }
 }
 
 /* Statistics Cards */
@@ -332,19 +353,6 @@
     padding: var(--spacing-xl);
   }
   
-  .reports-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .reports-actions {
-    width: 100%;
-  }
-  
-  .reports-actions .btn {
-    flex: 1;
-  }
-  
   .stats-grid {
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: var(--spacing-lg);
@@ -358,15 +366,6 @@
 @media (max-width: 768px) {
   .reports {
     padding: var(--spacing-lg);
-  }
-  
-  .reports-filters {
-    flex-direction: column;
-    gap: var(--spacing-lg);
-  }
-  
-  .filter-group {
-    min-width: 100%;
   }
   
   .stats-grid {
@@ -401,14 +400,6 @@
   .chart-container {
     overflow-x: auto;
   }
-  
-  .reports-actions {
-    flex-direction: column;
-  }
-  
-  .btn {
-    width: 100%;
-  }
 }
 
 @media (max-width: 480px) {
@@ -439,7 +430,6 @@
     padding: 0;
   }
   
-  .reports-actions,
   .reports-filters {
     display: none;
   }

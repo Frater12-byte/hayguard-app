@@ -1,5 +1,5 @@
 /* ========================================
-   HayGuard Alerts - Professional Styling
+   HayGuard Alerts - Consistent Filter Styling
    ======================================== */
 
 :root {
@@ -80,7 +80,10 @@
   color: var(--text-primary);
 }
 
-/* Controls Section - Single Row, No Headlines */
+/* ============================================
+   CONTROLS SECTION - Consistent with Sensors
+   ============================================ */
+
 .alerts-controls {
   margin-bottom: 24px;
   padding: 16px;
@@ -97,7 +100,7 @@
   flex-wrap: wrap;
 }
 
-/* Time buttons - no label */
+/* Time buttons - inline with other controls */
 .time-buttons {
   display: flex;
   gap: 8px;
@@ -133,7 +136,7 @@
   font-weight: 600;
 }
 
-/* Selects */
+/* Selects - flex to fill space */
 .filter-select {
   padding: 10px 16px;
   border: 1px solid #e5e7eb;
@@ -154,7 +157,7 @@
   box-shadow: 0 0 0 3px rgba(244, 196, 48, 0.1);
 }
 
-/* Buttons */
+/* CTA Buttons - inside filter box */
 .btn {
   padding: 10px 20px;
   border: none;
@@ -196,7 +199,7 @@
   font-size: 13px;
 }
 
-/* Mobile */
+/* Mobile Responsive */
 @media (max-width: 1024px) {
   .controls-main {
     flex-direction: column;
@@ -515,24 +518,6 @@
 @media (max-width: 1024px) {
   .alerts-page-improved {
     padding: 20px;
-  }
-
-  .controls-main {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .time-buttons {
-    width: 100%;
-  }
-
-  .btn-time {
-    flex: 1;
-    justify-content: center;
-  }
-
-  .filter-select {
-    width: 100%;
   }
 
   .table-header,
