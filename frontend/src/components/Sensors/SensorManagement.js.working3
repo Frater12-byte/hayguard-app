@@ -1,0 +1,120 @@
+import React, { useState, useEffect } from 'react';
+import { apiService } from '../../services/apiService';
+import './SensorManagement.css';
+
+const SensorManagement = () => {
+  const [sensors, setSensors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newSensor, setNewSensor] = useState({
+    name: '',
+    location: '',
+    type: 'temperature',
+    farm_id: 1
+  });
+
+  useEffect(() => {
+    fetchSensors();
+  }, []);
+
+  const fetchSensors = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const sensorsData = await apiService.getSensors();
+      setSensors(sensorsData || []);
+    } catch (error) {
+      console.error('Failed to fetch sensors:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddSensor = async (e) => {
+    e.preventDefault();
+    try {
+      const createdSensor = await apiService.createSensor(newSensor);
+      setSensors(prev => [...prev, createdSensor]);
+      setNewSensor({ name: '', location: '', type: 'temperature', farm_id: 1 });
+      setShowAddForm(false);
+    } catch (error) {
+      console.error('Failed to create sensor:', error);
+      setError(error.message);
+    }
+  };
+
+  const filteredSensors = sensors.filter(sensor =>
+    sensor.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    sensor.location?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading) return <div className="loading">Loading sensors...</div>;
+  if (error) return <div className="error">Error: {error}</div>;
+
+  return (
+    <div className="sensor-management">
+      <div className="sensor-header">
+        <h2>Sensor Management</h2>
+        <button onClick={() => setShowAddForm(true)} className="add-sensor-btn">
+          Add New Sensor
+        </button>
+      </div>
+
+      <div className="search-bar">
+        <input
+          type="text"
+          placeholder="Search sensors..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+
+      {showAddForm && (
+        <div className="add-sensor-form">
+          <h3>Add New Sensor</h3>
+          <form onSubmit={handleAddSensor}>
+            <input
+              type="text"
+              placeholder="Sensor Name"
+              value={newSensor.name}
+              onChange={(e) => setNewSensor({...newSensor, name: e.target.value})}
+              required
+            />
+            <input
+              type="text"
+              placeholder="Location"
+              value={newSensor.location}
+              onChange={(e) => setNewSensor({...newSensor, location: e.target.value})}
+              required
+            />
+            <div className="form-buttons">
+              <button type="submit">Add Sensor</button>
+              <button type="button" onClick={() => setShowAddForm(false)}>Cancel</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div className="sensors-grid">
+        {filteredSensors.length > 0 ? (
+          filteredSensors.map(sensor => (
+            <div key={sensor.id} className="sensor-card">
+              <h3>{sensor.name}</h3>
+              <p>Location: {sensor.location}</p>
+              <p>Type: {sensor.type}</p>
+              <p>Status: {sensor.status || 'Active'}</p>
+            </div>
+          ))
+        ) : (
+          <div className="no-sensors">No sensors found</div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default SensorManagement;

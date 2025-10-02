@@ -1,143 +1,146 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import Landing from './components/Landing/Landing';
 import './App.css';
 
 // Components
-import Login from './components/Auth/Login';
+import Sidebar from './components/Sidebar';
+import Header from './components/Header';
 import Dashboard from './components/Dashboard';
-import SensorManagement from './components/Sensors/SensorManagement';
+import MyFarm from './components/MyFarm/MyFarm';
+import Sensors from './components/Sensors/Sensors';
+import SensorDetails from './components/Sensors/SensorDetails';
 import Reports from './components/Reports/Reports';
 import Team from './components/Team/Team';
 import Alerts from './components/Alerts/Alerts';
 import Profile from './components/Profile/Profile';
-import Settings from './components/Settings/Settings';
-import MyFarm from './components/Farm/MyFarm';
-import Farms from './components/Farms/Farms';
-import FarmDetails from './components/Farms/FarmDetails';
-import Weather from './components/Weather/Weather';
-import Analytics from './components/Analytics/Analytics';
-import APIDebugTest from './components/TestPage'; 
-import Sidebar from './components/Sidebar';
-import Header from './components/Header';
 
 // Services
-// eslint-disable-next-line no-unused-vars
 import { authService } from './services/authService';
+import { userService } from './services/userService';
+
+// All Context Providers
+import { DataProvider } from './contexts/DataContext';
+import { FarmProvider } from './contexts/FarmContext';
+import { UserProvider } from './contexts/UserContext';
+import { NotificationProvider } from './contexts/NotificationContext';
+import { SensorsProvider } from './contexts/SensorsContext';
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const initializeAuth = async () => {
       try {
         const token = localStorage.getItem('token');
         if (token) {
-          setIsAuthenticated(true);
-          // Set demo user data
-          setUser({
-            name: 'Demo User',
-            email: 'demo@hayguard.com',
-            profilePicture: '/default-avatar.png'
-          });
+          const userData = await userService.getCurrentUser();
+          setUser(userData);
         }
       } catch (error) {
-        console.error('Auth check failed:', error);
+        console.error('Auth initialization failed:', error);
+        localStorage.removeItem('token');
       } finally {
         setLoading(false);
       }
     };
 
-    checkAuth();
+    initializeAuth();
   }, []);
 
   const handleLogin = async (email, password) => {
     try {
-      // Simulate successful login for demo credentials
-      if (email === 'demo@hayguard.com' && password === 'demo123') {
-        localStorage.setItem('token', 'demo-token');
-        setIsAuthenticated(true);
-        setUser({
-          name: 'Demo User',
-          email: 'demo@hayguard.com',
-          profilePicture: '/default-avatar.png'
-        });
-        return { success: true };
-      } else {
-        return { success: false, error: 'Invalid credentials' };
-      }
+      const response = await authService.login(email, password);
+      setUser(response.user);
+      localStorage.setItem('token', response.token);
+      return { success: true };
     } catch (error) {
-      return { success: false, error: 'Login failed' };
+      return { 
+        success: false, 
+        error: error.response?.data?.message || 'Login failed' 
+      };
     }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    setIsAuthenticated(false);
+    authService.logout();
     setUser(null);
+    localStorage.removeItem('token');
   };
 
   if (loading) {
-    return <div className="loading">Loading...</div>;
+    return (
+      <div className="app-loading">
+        <div className="loading-spinner">
+          <div className="hayguard-logo">
+            <img src="/logo.png" alt="HayGuard" />
+          </div>
+          <div className="loading-text">Loading HayGuard...</div>
+        </div>
+      </div>
+    );
   }
+
+ if (!user) {
+  return (
+    <Router>
+      <div className="app">
+        <Routes>
+          <Route path="/" element={<Landing onLogin={handleLogin} />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+    </Router>
+  );
+}
 
   return (
     <Router>
-      <div className="App">
-        <Routes>
-          <Route 
-            path="/login" 
-            element={
-              isAuthenticated ? 
-              <Navigate to="/dashboard" replace /> : 
-              <Login onLogin={handleLogin} />
-            } 
-          />
-          <Route 
-            path="/" 
-            element={
-              isAuthenticated ? 
-              <Navigate to="/dashboard" replace /> : 
-              <Navigate to="/login" replace />
-            } 
-          />
-          
-          <Route path="/*" element={
-            isAuthenticated ? (
-              <div className="app-layout">
-                <Sidebar 
-                  collapsed={sidebarCollapsed} 
-                  onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-                  user={user}
-                />
-                <div className="main-content">
-                  <Header onLogout={handleLogout} user={user} onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)} />
-                  <div className="content">
-                    <Routes>
-                      <Route path="/dashboard" element={<Dashboard user={user} />} />
-                      <Route path="/sensors" element={<SensorManagement />} />
-                      <Route path="/reports" element={<Reports />} />
-                      <Route path="/team" element={<Team />} />
-                      <Route path="/alerts" element={<Alerts />} />
-                      <Route path="/profile" element={<Profile user={user} />} />
-                      <Route path="/settings" element={<Settings />} />
-                      <Route path="/farm-info" element={<MyFarm />} />
-                      <Route path="/farms" element={<Farms />} />
-                      <Route path="/farms/:id" element={<FarmDetails />} />
-                      <Route path="/weather" element={<Weather />} />
-                      <Route path="/analytics" element={<Analytics />} />
-                      <Route path="/debug" element={<APIDebugTest />} />                    </Routes>
+      <NotificationProvider>
+        <UserProvider>
+          <FarmProvider>
+            <SensorsProvider>
+              <DataProvider>
+                <div className="app">
+                  <Sidebar
+                    collapsed={sidebarCollapsed}
+                    onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+                    user={user}
+                  />
+             
+                  <div className={`main-content ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+                    <Header
+                      user={user}
+                      onLogout={handleLogout}
+                      onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+                    />
+                      
+                    <main className="app-main">
+                      <Routes>
+                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                        <Route path="/dashboard" element={<Dashboard user={user} />} />
+                
+                        <Route path="/sensors" element={<Sensors />} />
+                        <Route path="/sensors/:id" element={<SensorDetails />} />
+                  
+                        <Route path="/reports" element={<Reports />} />
+                        <Route path="/team" element={<Team />} />
+                        <Route path="/alerts" element={<Alerts />} />
+                        <Route path="/my-farm" element={<MyFarm />} />
+                        <Route path="/my-profile" element={<Profile />} />
+                    
+                        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                      </Routes>
+                    </main>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          } />
-        </Routes>
-      </div>
+              </DataProvider>
+            </SensorsProvider>
+          </FarmProvider>
+        </UserProvider>
+      </NotificationProvider>
     </Router>
   );
 }

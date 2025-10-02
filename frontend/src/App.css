@@ -1,314 +1,48 @@
-/* App.css - HayGuard Main Application Styles */
-
-/* CSS Reset and Base Styles */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html, body {
-  height: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background-color: #f8fafc;
-  color: #1e293b;
-}
-
-#root {
-  height: 100%;
-}
+@import './styles/design-system.css';
 
 /* Main App Layout */
-.app {
+.App {
   height: 100vh;
   display: flex;
-  overflow: hidden;
 }
 
+.app-layout {
+  width: 100%;
+  display: flex;
+}
+
+/* Main Content Area */
 .main-content {
   flex: 1;
-  margin-left: 280px;
+  margin-left: var(--sidebar-width);
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
   transition: margin-left 0.3s ease;
-  background: #f8fafc;
 }
 
 .main-content.sidebar-collapsed {
-  margin-left: 80px;
+  margin-left: var(--sidebar-collapsed-width);
 }
 
-.app-main {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-/* Loading Screen */
-.app-loading {
-  height: 100vh;
+/* Header */
+.header {
+  height: var(--header-height);
+  background: white;
+  border-bottom: 1px solid var(--gray-200);
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #F4C430 0%, #E6B800 100%);
+  justify-content: space-between;
+  padding: 0 var(--spacing-6);
 }
 
-.loading-spinner {
-  text-align: center;
-  color: #8B4513;
+/* Content Area */
+.content {
+  flex: 1;
+  padding: var(--spacing-6);
+  overflow-y: auto;
 }
 
-.hayguard-logo {
-  margin-bottom: 20px;
-  animation: pulse 2s ease-in-out infinite;
-}
-
-.hayguard-logo img {
-  width: 80px;
-  height: 80px;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-}
-
-.loading-text {
-  font-size: 18px;
-  font-weight: 600;
-  margin-top: 16px;
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-}
-
-/* Common Button Styles */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 24px;
-  font-size: 14px;
-  font-weight: 600;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-decoration: none;
-  outline: none;
-}
-
-.btn:focus {
-  box-shadow: 0 0 0 3px rgba(244, 196, 48, 0.3);
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #F4C430 0%, #E6B800 100%);
-  color: #8B4513;
-  box-shadow: 0 2px 4px rgba(244, 196, 48, 0.3);
-}
-
-.btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(244, 196, 48, 0.4);
-}
-
-.btn-secondary {
-  background: white;
-  color: #374151;
-  border: 1px solid #d1d5db;
-}
-
-.btn-secondary:hover {
-  background: #f9fafb;
-  border-color: #9ca3af;
-}
-
-.btn-danger {
-  background: #ef4444;
-  color: white;
-}
-
-.btn-danger:hover {
-  background: #dc2626;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
-}
-
-/* Card Styles */
-.card {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #f3f4f6;
-  overflow: hidden;
-  transition: all 0.2s ease;
-}
-
-.card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.card-header {
-  padding: 20px 24px;
-  border-bottom: 1px solid #f3f4f6;
-  background: #fafbfc;
-}
-
-.card-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #111827;
-  margin: 0;
-}
-
-.card-body {
-  padding: 24px;
-}
-
-/* Form Styles */
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-label {
-  display: block;
-  font-size: 14px;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 6px;
-}
-
-.form-input {
-  width: 100%;
-  padding: 12px 16px;
-  font-size: 14px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  background: white;
-  transition: all 0.2s ease;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: #F4C430;
-  box-shadow: 0 0 0 3px rgba(244, 196, 48, 0.1);
-}
-
-.form-input:disabled {
-  background: #f3f4f6;
-  color: #9ca3af;
-  cursor: not-allowed;
-}
-
-.form-error {
-  margin-top: 6px;
-  font-size: 12px;
-  color: #ef4444;
-}
-
-/* Table Styles */
-.table-container {
-  overflow-x: auto;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
-}
-
-.table th,
-.table td {
-  padding: 12px 16px;
-  text-align: left;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.table th {
-  background: #f9fafb;
-  font-weight: 600;
-  color: #374151;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.table tr:hover {
-  background: #f9fafb;
-}
-
-/* Badge Styles */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 8px;
-  font-size: 12px;
-  font-weight: 600;
-  border-radius: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.badge-success {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.badge-warning {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.badge-danger {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-.badge-info {
-  background: #dbeafe;
-  color: #1e40af;
-}
-
-/* Utility Classes */
-.text-center { text-align: center; }
-.text-left { text-align: left; }
-.text-right { text-align: right; }
-
-.mt-1 { margin-top: 0.25rem; }
-.mt-2 { margin-top: 0.5rem; }
-.mt-3 { margin-top: 0.75rem; }
-.mt-4 { margin-top: 1rem; }
-.mt-5 { margin-top: 1.25rem; }
-
-.mb-1 { margin-bottom: 0.25rem; }
-.mb-2 { margin-bottom: 0.5rem; }
-.mb-3 { margin-bottom: 0.75rem; }
-.mb-4 { margin-bottom: 1rem; }
-.mb-5 { margin-bottom: 1.25rem; }
-
-.p-1 { padding: 0.25rem; }
-.p-2 { padding: 0.5rem; }
-.p-3 { padding: 0.75rem; }
-.p-4 { padding: 1rem; }
-.p-5 { padding: 1.25rem; }
-
-.d-flex { display: flex; }
-.align-items-center { align-items: center; }
-.justify-content-between { justify-content: space-between; }
-.gap-1 { gap: 0.25rem; }
-.gap-2 { gap: 0.5rem; }
-.gap-3 { gap: 0.75rem; }
-.gap-4 { gap: 1rem; }
-
-/* Responsive Design */
+/* Mobile Responsiveness */
 @media (max-width: 768px) {
   .main-content {
     margin-left: 0;
@@ -317,134 +51,4 @@ html, body {
   .main-content.sidebar-collapsed {
     margin-left: 0;
   }
-  
-  .card-body {
-    padding: 16px;
-  }
-  
-  .card-header {
-    padding: 16px;
-  }
-}
-
-/* Print Styles */
-@media print {
-  .sidebar,
-  .app-header {
-    display: none !important;
-  }
-  
-  .main-content {
-    margin-left: 0 !important;
-  }
-  
-  .card {
-    break-inside: avoid;
-    margin-bottom: 20px;
-  }
-}
-
-/* Custom Scrollbar */
-.app-main::-webkit-scrollbar {
-  width: 8px;
-}
-
-.app-main::-webkit-scrollbar-track {
-  background: #f1f5f9;
-}
-
-.app-main::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
-}
-
-.app-main::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-/* Focus Styles for Accessibility */
-button:focus,
-a:focus,
-input:focus,
-select:focus,
-textarea:focus {
-  outline: 2px solid #F4C430;
-  outline-offset: 2px;
-}
-
-/* High Contrast Mode Support */
-@media (prefers-contrast: high) {
-  .card {
-    border-color: #000;
-    border-width: 2px;
-  }
-  
-  .form-input {
-    border-color: #000;
-    border-width: 2px;
-  }
-}
-/* Responsive layout for sidebar collapse */
-.app-layout {
-  display: flex;
-  height: 100vh;
-}
-
-.main-content {
-  flex: 1;
-  transition: margin-left 0.3s ease;
-  margin-left: 250px; /* Default sidebar width */
-}
-
-.sidebar.collapsed + .main-content {
-  margin-left: 60px; /* Collapsed sidebar width */
-}
-
-.content {
-  padding: 20px;
-  height: calc(100vh - 60px); /* Adjust for header height */
-  overflow-y: auto;
-}
-
-/* Ensure consistent heights between header and sidebar header */
-.content {
-  height: calc(100vh - 80px); /* Match header height */
-  overflow-y: auto;
-  padding: 20px;
-}
-
-/* Sidebar header should match header height */
-.sidebar-header {
-  height: 80px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Global color scheme updates */
-body {
-  background-color: #fff8eb !important;
-}
-
-.main-content, .content {
-  background-color: #fff8eb;
-}
-
-/* Button color updates */
-.btn-primary, .primary-btn, button.primary {
-  background-color: #7c4219 !important;
-  border-color: #7c4219 !important;
-}
-
-.btn-success, .success-btn, button.success {
-  background-color: #42210e !important;
-  border-color: #42210e !important;
-}
-
-.btn-primary:hover, .primary-btn:hover {
-  background-color: #5c2f14 !important;
-}
-
-.btn-success:hover, .success-btn:hover {
-  background-color: #2c150a !important;
 }

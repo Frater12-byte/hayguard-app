@@ -19,8 +19,8 @@ const Login = ({ onLogin }) => {
 
   const handleDemoLogin = () => {
     setCredentials({
-      email: 'demo@hayguard.com',
-      password: 'demo123'
+      email: 'hello@hayguard-app.com',
+      password: '7JppT8xv1xGVG8fR'
     });
   };
 
@@ -32,13 +32,13 @@ const Login = ({ onLogin }) => {
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      if (credentials.email === 'demo@hayguard.com' && credentials.password === 'demo123') {
+      if (credentials.email === 'hello@hayguard-app.com' && credentials.password === '7JppT8xv1xGVG8fR') {
         const result = await onLogin(credentials.email, credentials.password);
         if (!result.success) {
           setError(result.error);
         }
       } else {
-        setError('Invalid email or password. Use demo@hayguard.com / demo123 for demo access.');
+        setError('Invalid email or password. Use hello@hayguar-appd.com / password for demo access.');
       }
     } catch (err) {
       setError('Login failed. Please try again.');
@@ -218,7 +218,7 @@ const Login = ({ onLogin }) => {
                 <p>Experience HayGuard with our demo account</p>
                 <div className="demo-credentials">
                   <div><strong>Email:</strong> demo@hayguard.com</div>
-                  <div><strong>Password:</strong> demo123</div>
+                  <div><strong>Password:</strong> password</div>
                 </div>
                 <button className="demo-fill-btn" onClick={handleDemoLogin}>
                   Use Demo Credentials

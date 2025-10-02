@@ -1,0 +1,210 @@
+import React, { useState, useEffect } from 'react';
+import { apiService } from '../../services/apiService';
+import './SensorManagement.css';
+
+const SensorManagement = () => {
+  const [sensors, setSensors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newSensor, setNewSensor] = useState({ 
+    name: '', 
+    location: '', 
+    sensor_id: '',
+    type: 'temperature',
+    bales_monitored: 0
+  });
+
+  useEffect(() => {
+    fetchSensors();
+  }, []);
+
+  const fetchSensors = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const sensorsData = await apiService.getSensors();
+      setSensors(sensorsData || []);
+    } catch (error) {
+      console.error('Failed to fetch sensors:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddSensor = async (e) => {
+    e.preventDefault();
+    try {
+      const createdSensor = await apiService.createSensor(newSensor);
+      setSensors(prev => [...prev, createdSensor]);
+      setNewSensor({ name: '', location: '', sensor_id: '', type: 'temperature', bales_monitored: 0 });
+      setShowAddForm(false);
+    } catch (error) {
+      console.error('Failed to create sensor:', error);
+      setError(error.message);
+    }
+  };
+
+  const getStatusColor = (sensor) => {
+    if (!sensor.last_reading) return '#fbbf24'; // yellow for no readings
+    const lastReading = new Date(sensor.last_reading);
+    const hoursSinceReading = (Date.now() - lastReading.getTime()) / (1000 * 60 * 60);
+    return hoursSinceReading < 2 ? '#10b981' : '#f59e0b'; // green if recent, amber if old
+  };
+
+  const filteredSensors = sensors.filter(sensor =>
+    sensor.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    sensor.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    sensor.sensor_id?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading) return <div className="loading">Loading sensors...</div>;
+  if (error) return <div className="error">Error: {error}</div>;
+
+  return (
+    <div className="sensor-management">
+      <div className="sensor-header">
+        <h2>Sensor Management</h2>
+        <div className="header-controls">
+          <div className="search-bar">
+            <input
+              type="text"
+              placeholder="Search sensors by name, ID, or location..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <button onClick={() => setShowAddForm(true)} className="add-sensor-btn">
+            + Add New Sensor
+          </button>
+        </div>
+      </div>
+
+      {showAddForm && (
+        <div className="add-sensor-form">
+          <h3>Add New Sensor</h3>
+          <form onSubmit={handleAddSensor}>
+            <div className="form-row">
+              <input
+                type="text"
+                placeholder="Sensor Name"
+                value={newSensor.name}
+                onChange={(e) => setNewSensor({...newSensor, name: e.target.value})}
+                required
+              />
+              <input
+                type="text"
+                placeholder="Sensor ID (e.g., HB-2024-004)"
+                value={newSensor.sensor_id}
+                onChange={(e) => setNewSensor({...newSensor, sensor_id: e.target.value})}
+                required
+              />
+            </div>
+            <div className="form-row">
+              <input
+                type="text"
+                placeholder="Location"
+                value={newSensor.location}
+                onChange={(e) => setNewSensor({...newSensor, location: e.target.value})}
+                required
+              />
+              <select
+                value={newSensor.type}
+                onChange={(e) => setNewSensor({...newSensor, type: e.target.value})}
+              >
+                <option value="temperature">Temperature</option>
+                <option value="moisture">Moisture</option>
+                <option value="humidity">Humidity</option>
+                <option value="combined">Temperature + Moisture</option>
+              </select>
+            </div>
+            <div className="form-row">
+              <input
+                type="number"
+                placeholder="Bales Monitored"
+                min="0"
+                value={newSensor.bales_monitored}
+                onChange={(e) => setNewSensor({...newSensor, bales_monitored: parseInt(e.target.value) || 0})}
+                required
+              />
+            </div>
+            <div className="form-buttons">
+              <button type="submit">Add Sensor</button>
+              <button type="button" onClick={() => setShowAddForm(false)}>Cancel</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div className="sensors-grid">
+        {filteredSensors.length > 0 ? (
+          filteredSensors.map(sensor => (
+            <div key={sensor.id} className="sensor-card">
+              <div className="sensor-header-card">
+                <div className="sensor-title">
+                  <h3>{sensor.name}</h3>
+                  <div 
+                    className="status-indicator"
+                    style={{ backgroundColor: getStatusColor(sensor) }}
+                  ></div>
+                </div>
+                <div className="sensor-id">{sensor.sensor_id}</div>
+              </div>
+              
+              <div className="sensor-location">
+                <span className="location-icon">📍</span>
+                {sensor.location}
+              </div>
+
+              <div className="sensor-metrics">
+                <div className="metric-row">
+                  <div className="metric">
+                    <span className="label">Temperature</span>
+                    <span className="value">{sensor.temperature || '0'}°C</span>
+                  </div>
+                  <div className="metric">
+                    <span className="label">Moisture</span>
+                    <span className="value">{sensor.moisture || '0'}%</span>
+                  </div>
+                </div>
+                <div className="metric-row">
+                  <div className="metric">
+                    <span className="label">Battery</span>
+                    <span className="value">{sensor.battery_level || 100}%</span>
+                  </div>
+                  <div className="metric">
+                    <span className="label">Bales</span>
+                    <span className="value">{sensor.bales_monitored || 0}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="sensor-footer">
+                <div className="last-reading">
+                  Last: {sensor.last_reading ? 
+                    new Date(sensor.last_reading).toLocaleDateString() + ' ' + 
+                    new Date(sensor.last_reading).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 
+                    'No readings'
+                  }
+                </div>
+                <button 
+                  className="view-details-btn"
+                  onClick={() => window.location.href = `/sensors/${sensor.id}`}
+                >
+                  View Details
+                </button>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="no-sensors">No sensors found</div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default SensorManagement;

@@ -1,441 +1,740 @@
-import React, { useState } from 'react';
+// src/components/Reports/Reports.js
+import React, { useState, useEffect } from 'react';
+import { Download, FileText, Calendar, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import dataGenService from '../../services/dataGenerationService';
+import './Reports.css';
 
 const Reports = () => {
-  const [selectedTimeframe, setSelectedTimeframe] = useState('30days');
-  const [selectedReportType, setSelectedReportType] = useState('comprehensive');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedReports, setGeneratedReports] = useState([
-    {
-      id: 1,
-      name: 'Temperature Analysis - March 2024',
-      type: 'Temperature Report',
-      dateGenerated: '2024-03-15',
-      timeframe: '30 days',
-      status: 'completed',
-      fileSize: '2.3 MB'
-    },
-    {
-      id: 2,
-      name: 'Moisture Monitoring - February 2024',
-      type: 'Moisture Report',
-      dateGenerated: '2024-02-28',
-      timeframe: '30 days',
-      status: 'completed',
-      fileSize: '1.8 MB'
-    },
-    {
-      id: 3,
-      name: 'Complete Farm Analysis - Q1 2024',
-      type: 'Comprehensive Report',
-      dateGenerated: '2024-01-31',
-      timeframe: '90 days',
-      status: 'completed',
-      fileSize: '5.2 MB'
+  const [sensors, setSensors] = useState([]);
+  const [selectedSensor, setSelectedSensor] = useState('all');
+  const [dateRange, setDateRange] = useState('7');
+  const [reportData, setReportData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadReportData();
+  }, [selectedSensor, dateRange]);
+
+  const loadReportData = () => {
+    setLoading(true);
+    
+    try {
+      // Get all sensors with current data
+      const allSensors = dataGenService.getAllSensorsWithCurrentData();
+      const pairedSensors = allSensors.filter(s => s.status !== 'unpaired');
+      setSensors(pairedSensors);
+
+      // Get historical data based on filters
+      const days = parseInt(dateRange);
+      let historicalData = [];
+      let sensorsToProcess = [];
+
+      if (selectedSensor === 'all') {
+        sensorsToProcess = pairedSensors;
+      } else {
+        const sensor = pairedSensors.find(s => s.id === selectedSensor);
+        if (sensor) sensorsToProcess = [sensor];
+      }
+
+      // Collect historical data
+      sensorsToProcess.forEach(sensor => {
+        const sensorHistory = dataGenService.getHistoricalData(sensor.id, days);
+        historicalData = [...historicalData, ...sensorHistory];
+      });
+
+      // Process data for charts and statistics
+      const processedData = processReportData(sensorsToProcess, historicalData, days);
+      setReportData(processedData);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading report data:', error);
+      setLoading(false);
     }
-  ]);
-
-  const reportTypes = [
-    {
-      id: 'temperature',
-      name: 'Temperature Report',
-      description: 'Detailed temperature trends, anomalies, and sensor performance',
-      icon: '🌡️',
-      estimatedTime: '2-3 minutes'
-    },
-    {
-      id: 'moisture',
-      name: 'Moisture Report', 
-      description: 'Moisture level analysis, risk assessment, and recommendations',
-      icon: '💧',
-      estimatedTime: '2-3 minutes'
-    },
-    {
-      id: 'alerts',
-      name: 'Alerts Summary',
-      description: 'Critical alerts, warning patterns, and response analytics',
-      icon: '⚠️',
-      estimatedTime: '1-2 minutes'
-    },
-    {
-      id: 'comprehensive',
-      name: 'Complete Farm Report',
-      description: 'Full analysis including all metrics, trends, and insights',
-      icon: '📊',
-      estimatedTime: '5-7 minutes'
-    }
-  ];
-
-  const timeframes = [
-    { value: '7days', label: 'Last 7 Days' },
-    { value: '30days', label: 'Last 30 Days' },
-    { value: '90days', label: 'Last 90 Days' },
-    { value: '1year', label: 'Last Year' },
-    { value: 'custom', label: 'Custom Range' }
-  ];
-
-  // Generate sample CSV data based on report type
-  const generateCSVData = (reportType) => {
-    const headers = [];
-    const rows = [];
-
-    switch (reportType) {
-      case 'temperature':
-        headers.push('Date', 'Time', 'Sensor ID', 'Temperature (°C)', 'Location', 'Status', 'Alert Level');
-        for (let i = 0; i < 100; i++) {
-          const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
-          rows.push([
-            date.toLocaleDateString(),
-            date.toLocaleTimeString(),
-            `TEMP-${String(i % 10 + 1).padStart(3, '0')}`,
-            (18 + Math.random() * 15).toFixed(1),
-            `Field ${String.fromCharCode(65 + (i % 5))}`,
-            Math.random() > 0.1 ? 'Normal' : 'Alert',
-            Math.random() > 0.8 ? 'Critical' : Math.random() > 0.6 ? 'Warning' : 'Normal'
-          ]);
-        }
-        break;
-      
-      case 'moisture':
-        headers.push('Date', 'Time', 'Sensor ID', 'Moisture (%)', 'Location', 'Recommended Action');
-        for (let i = 0; i < 100; i++) {
-          const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
-          const moisture = (8 + Math.random() * 12).toFixed(1);
-          rows.push([
-            date.toLocaleDateString(),
-            date.toLocaleTimeString(),
-            `MOIST-${String(i % 8 + 1).padStart(3, '0')}`,
-            moisture,
-            `Barn ${i % 3 + 1}`,
-            moisture > 15 ? 'Monitor closely' : moisture < 10 ? 'Check ventilation' : 'Normal'
-          ]);
-        }
-        break;
-      
-      case 'alerts':
-        headers.push('Date', 'Time', 'Alert Type', 'Sensor ID', 'Message', 'Severity', 'Resolution Status');
-        for (let i = 0; i < 50; i++) {
-          const date = new Date(Date.now() - i * 60 * 60 * 1000);
-          const alertTypes = ['Temperature', 'Moisture', 'System', 'Connection'];
-          const severities = ['Critical', 'Warning', 'Info'];
-          rows.push([
-            date.toLocaleDateString(),
-            date.toLocaleTimeString(),
-            alertTypes[i % alertTypes.length],
-            `SENS-${String(i % 12 + 1).padStart(3, '0')}`,
-            `Alert message ${i + 1}`,
-            severities[i % severities.length],
-            Math.random() > 0.3 ? 'Resolved' : 'Open'
-          ]);
-        }
-        break;
-      
-      default: // comprehensive
-        headers.push('Date', 'Sensor ID', 'Temperature (°C)', 'Moisture (%)', 'Location', 'Status', 'Alerts Count');
-        for (let i = 0; i < 200; i++) {
-          const date = new Date(Date.now() - i * 12 * 60 * 60 * 1000);
-          rows.push([
-            date.toLocaleDateString(),
-            `SENS-${String(i % 15 + 1).padStart(3, '0')}`,
-            (18 + Math.random() * 15).toFixed(1),
-            (8 + Math.random() * 12).toFixed(1),
-            `Location ${String.fromCharCode(65 + (i % 5))}`,
-            Math.random() > 0.1 ? 'Normal' : 'Alert',
-            Math.floor(Math.random() * 5)
-          ]);
-        }
-    }
-
-    return { headers, rows };
   };
 
-  // Convert data to CSV format and download
-  const downloadCSV = (reportType, reportName) => {
-    const { headers, rows } = generateCSVData(reportType);
-    
-    // Create CSV content
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
+  const processReportData = (sensors, historicalData, days) => {
+    // Sort data by timestamp
+    const sortedData = [...historicalData].sort((a, b) => 
+      new Date(a.timestamp) - new Date(b.timestamp)
+    );
 
-    // Create and download file
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    // Group data by day for daily aggregates
+    const dailyData = groupByDay(sortedData);
+
+    // Calculate statistics
+    const stats = calculateStatistics(sensors, sortedData);
+
+    // Prepare chart data
+    const chartData = prepareChartData(dailyData);
+
+    // Calculate trends
+    const trends = calculateTrends(sortedData);
+
+    return {
+      sensors,
+      historicalData: sortedData,
+      dailyData,
+      chartData,
+      stats,
+      trends,
+      dateRange: days
+    };
+  };
+
+  const groupByDay = (data) => {
+    const grouped = {};
+
+    data.forEach(reading => {
+      const date = new Date(reading.timestamp);
+      const dayKey = date.toISOString().split('T')[0];
+
+      if (!grouped[dayKey]) {
+        grouped[dayKey] = {
+          date: dayKey,
+          temperatures: [],
+          moistures: [],
+          batteries: [],
+          count: 0
+        };
+      }
+
+      if (reading.temperature !== null) {
+        grouped[dayKey].temperatures.push(reading.temperature);
+      }
+      if (reading.moisture !== null) {
+        grouped[dayKey].moistures.push(reading.moisture);
+      }
+      if (reading.battery !== null) {
+        grouped[dayKey].batteries.push(reading.battery);
+      }
+      grouped[dayKey].count++;
+    });
+
+    return grouped;
+  };
+
+  const prepareChartData = (dailyData) => {
+    return Object.values(dailyData).map(day => ({
+      date: new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      avgTemp: day.temperatures.length > 0 
+        ? (day.temperatures.reduce((a, b) => a + b, 0) / day.temperatures.length).toFixed(1)
+        : null,
+      minTemp: day.temperatures.length > 0 
+        ? Math.min(...day.temperatures).toFixed(1)
+        : null,
+      maxTemp: day.temperatures.length > 0 
+        ? Math.max(...day.temperatures).toFixed(1)
+        : null,
+      avgMoisture: day.moistures.length > 0 
+        ? (day.moistures.reduce((a, b) => a + b, 0) / day.moistures.length).toFixed(1)
+        : null,
+      minMoisture: day.moistures.length > 0 
+        ? Math.min(...day.moistures).toFixed(1)
+        : null,
+      maxMoisture: day.moistures.length > 0 
+        ? Math.max(...day.moistures).toFixed(1)
+        : null,
+      avgBattery: day.batteries.length > 0 
+        ? (day.batteries.reduce((a, b) => a + b, 0) / day.batteries.length).toFixed(1)
+        : null,
+      readings: day.count
+    }));
+  };
+
+  const calculateStatistics = (sensors, data) => {
+    const temps = data.filter(r => r.temperature !== null).map(r => r.temperature);
+    const moistures = data.filter(r => r.moisture !== null).map(r => r.moisture);
+    const batteries = data.filter(r => r.battery !== null).map(r => r.battery);
+
+    return {
+      totalSensors: sensors.length,
+      totalReadings: data.length,
+      activeSensors: sensors.filter(s => s.status === 'online').length,
+      totalBalesMonitored: sensors.reduce((sum, s) => sum + (s.balesMonitored || 0), 0),
+      temperature: temps.length > 0 ? {
+        avg: (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1),
+        min: Math.min(...temps).toFixed(1),
+        max: Math.max(...temps).toFixed(1),
+        count: temps.length
+      } : null,
+      moisture: moistures.length > 0 ? {
+        avg: (moistures.reduce((a, b) => a + b, 0) / moistures.length).toFixed(1),
+        min: Math.min(...moistures).toFixed(1),
+        max: Math.max(...moistures).toFixed(1),
+        count: moistures.length
+      } : null,
+      battery: batteries.length > 0 ? {
+        avg: (batteries.reduce((a, b) => a + b, 0) / batteries.length).toFixed(1),
+        min: Math.min(...batteries).toFixed(1),
+        max: Math.max(...batteries).toFixed(1)
+      } : null
+    };
+  };
+
+  const calculateTrends = (data) => {
+    if (data.length < 2) return null;
+
+    const firstHalf = data.slice(0, Math.floor(data.length / 2));
+    const secondHalf = data.slice(Math.floor(data.length / 2));
+
+    const calcAvg = (arr, key) => {
+      const values = arr.filter(r => r[key] !== null).map(r => r[key]);
+      return values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null;
+    };
+
+    const tempTrend = calcAvg(secondHalf, 'temperature') - calcAvg(firstHalf, 'temperature');
+    const moistureTrend = calcAvg(secondHalf, 'moisture') - calcAvg(firstHalf, 'moisture');
+
+    return {
+      temperature: tempTrend,
+      moisture: moistureTrend
+    };
+  };
+
+  const getTrendIcon = (value) => {
+    if (!value || Math.abs(value) < 0.5) return <Minus size={16} />;
+    return value > 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />;
+  };
+
+  const getTrendClass = (value) => {
+    if (!value || Math.abs(value) < 0.5) return 'trend-stable';
+    return value > 0 ? 'trend-up' : 'trend-down';
+  };
+
+  const exportToCSV = () => {
+    if (!reportData) return;
+
+    const { historicalData, stats, dateRange } = reportData;
+    
+    let csv = 'HayGuard Sensor Data Export\n';
+    csv += `Generated: ${new Date().toLocaleString()}\n`;
+    csv += `Date Range: Last ${dateRange} days\n`;
+    csv += `Total Readings: ${stats.totalReadings}\n\n`;
+
+    // Summary Statistics
+    csv += 'SUMMARY STATISTICS\n';
+    csv += `Total Sensors,${stats.totalSensors}\n`;
+    csv += `Active Sensors,${stats.activeSensors}\n`;
+    csv += `Total Bales Monitored,${stats.totalBalesMonitored}\n\n`;
+
+    if (stats.temperature) {
+      csv += 'Temperature Statistics\n';
+      csv += `Average,${stats.temperature.avg}°C\n`;
+      csv += `Minimum,${stats.temperature.min}°C\n`;
+      csv += `Maximum,${stats.temperature.max}°C\n\n`;
+    }
+
+    if (stats.moisture) {
+      csv += 'Moisture Statistics\n';
+      csv += `Average,${stats.moisture.avg}%\n`;
+      csv += `Minimum,${stats.moisture.min}%\n`;
+      csv += `Maximum,${stats.moisture.max}%\n\n`;
+    }
+
+    // Detailed readings
+    csv += 'DETAILED READINGS\n';
+    csv += 'Timestamp,Sensor ID,Temperature (°C),Moisture (%),Battery (%)\n';
+    
+    historicalData.forEach(reading => {
+      csv += `${reading.timestamp},`;
+      csv += `${reading.sensorId},`;
+      csv += `${reading.temperature !== null ? reading.temperature : 'N/A'},`;
+      csv += `${reading.moisture !== null ? reading.moisture : 'N/A'},`;
+      csv += `${reading.battery !== null ? reading.battery : 'N/A'}\n`;
+    });
+
+    // Download
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `${reportName.replace(/\s+/g, '_')}.csv`);
+    link.setAttribute('download', `hayguard-report-${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const handleGenerateReport = async () => {
-    setIsGenerating(true);
+  const exportToPDF = () => {
+    if (!reportData) return;
+
+    const { sensors, stats, chartData, trends, dateRange } = reportData;
     
-    // Simulate report generation
-    setTimeout(() => {
-      const selectedType = reportTypes.find(type => type.id === selectedReportType);
-      const timeframeLabel = timeframes.find(tf => tf.value === selectedTimeframe)?.label;
-      
-      const newReport = {
-        id: generatedReports.length + 1,
-        name: `${selectedType.name} - ${new Date().toLocaleDateString()}`,
-        type: selectedType.name,
-        dateGenerated: new Date().toISOString().split('T')[0],
-        timeframe: timeframeLabel,
-        status: 'completed',
-        fileSize: `${(Math.random() * 3 + 1).toFixed(1)} MB`,
-        reportTypeId: selectedReportType
-      };
-      
-      setGeneratedReports(prev => [newReport, ...prev]);
-      setIsGenerating(false);
-    }, 3000);
-  };
+    let pdf = '═══════════════════════════════════════════════════════════════\n';
+    pdf += '                    HAYGUARD SENSOR REPORT                      \n';
+    pdf += '═══════════════════════════════════════════════════════════════\n\n';
+    
+    pdf += `Report Generated: ${new Date().toLocaleString()}\n`;
+    pdf += `Date Range: Last ${dateRange} days\n`;
+    pdf += `Report Type: ${selectedSensor === 'all' ? 'All Sensors' : 'Single Sensor'}\n\n`;
 
-  const handleDownloadReport = (report) => {
-    const reportTypeId = report.reportTypeId || selectedReportType;
-    downloadCSV(reportTypeId, report.name);
-  };
+    pdf += '───────────────────────────────────────────────────────────────\n';
+    pdf += '                      EXECUTIVE SUMMARY                         \n';
+    pdf += '───────────────────────────────────────────────────────────────\n\n';
 
-  const handleDeleteReport = (reportId) => {
-    if (window.confirm('Are you sure you want to delete this report?')) {
-      setGeneratedReports(prev => prev.filter(report => report.id !== reportId));
+    pdf += `Total Sensors Monitored:    ${stats.totalSensors}\n`;
+    pdf += `Active Sensors:             ${stats.activeSensors}\n`;
+    pdf += `Total Bales Protected:      ${stats.totalBalesMonitored}\n`;
+    pdf += `Total Readings Collected:   ${stats.totalReadings}\n\n`;
+
+    // Temperature Analysis
+    if (stats.temperature) {
+      pdf += '───────────────────────────────────────────────────────────────\n';
+      pdf += '                   TEMPERATURE ANALYSIS                        \n';
+      pdf += '───────────────────────────────────────────────────────────────\n\n';
+      pdf += `Average Temperature:        ${stats.temperature.avg}°C\n`;
+      pdf += `Minimum Temperature:        ${stats.temperature.min}°C\n`;
+      pdf += `Maximum Temperature:        ${stats.temperature.max}°C\n`;
+      pdf += `Temperature Range:          ${(parseFloat(stats.temperature.max) - parseFloat(stats.temperature.min)).toFixed(1)}°C\n`;
+      
+      if (trends && trends.temperature !== null) {
+        const trendText = Math.abs(trends.temperature) < 0.5 ? 'Stable' : 
+                         trends.temperature > 0 ? `Rising (+${trends.temperature.toFixed(1)}°C)` : 
+                         `Falling (${trends.temperature.toFixed(1)}°C)`;
+        pdf += `Temperature Trend:          ${trendText}\n`;
+      }
+      pdf += `Total Readings:             ${stats.temperature.count}\n\n`;
     }
+
+    // Moisture Analysis
+    if (stats.moisture) {
+      pdf += '───────────────────────────────────────────────────────────────\n';
+      pdf += '                    MOISTURE ANALYSIS                          \n';
+      pdf += '───────────────────────────────────────────────────────────────\n\n';
+      pdf += `Average Moisture:           ${stats.moisture.avg}%\n`;
+      pdf += `Minimum Moisture:           ${stats.moisture.min}%\n`;
+      pdf += `Maximum Moisture:           ${stats.moisture.max}%\n`;
+      pdf += `Moisture Range:             ${(parseFloat(stats.moisture.max) - parseFloat(stats.moisture.min)).toFixed(1)}%\n`;
+      
+      if (trends && trends.moisture !== null) {
+        const trendText = Math.abs(trends.moisture) < 0.5 ? 'Stable' : 
+                         trends.moisture > 0 ? `Rising (+${trends.moisture.toFixed(1)}%)` : 
+                         `Falling (${trends.moisture.toFixed(1)}%)`;
+        pdf += `Moisture Trend:             ${trendText}\n`;
+      }
+      pdf += `Total Readings:             ${stats.moisture.count}\n\n`;
+    }
+
+    // Battery Status
+    if (stats.battery) {
+      pdf += '───────────────────────────────────────────────────────────────\n';
+      pdf += '                     BATTERY STATUS                            \n';
+      pdf += '───────────────────────────────────────────────────────────────\n\n';
+      pdf += `Average Battery Level:      ${stats.battery.avg}%\n`;
+      pdf += `Minimum Battery Level:      ${stats.battery.min}%\n`;
+      pdf += `Maximum Battery Level:      ${stats.battery.max}%\n\n`;
+    }
+
+    // Sensor Details
+    pdf += '───────────────────────────────────────────────────────────────\n';
+    pdf += '                     SENSOR DETAILS                            \n';
+    pdf += '───────────────────────────────────────────────────────────────\n\n';
+
+    sensors.forEach((sensor, index) => {
+      pdf += `${index + 1}. ${sensor.name}\n`;
+      pdf += `   ID:                      ${sensor.id}\n`;
+      pdf += `   Location:                ${sensor.location}\n`;
+      pdf += `   Type:                    ${sensor.type.replace('_', ' & ')}\n`;
+      pdf += `   Status:                  ${sensor.status.toUpperCase()}\n`;
+      pdf += `   Bales Monitored:         ${sensor.balesMonitored}\n`;
+      
+      if (sensor.currentTemperature !== null) {
+        pdf += `   Current Temperature:     ${sensor.currentTemperature.toFixed(1)}°C\n`;
+      }
+      if (sensor.currentMoisture !== null) {
+        pdf += `   Current Moisture:        ${sensor.currentMoisture.toFixed(1)}%\n`;
+      }
+      pdf += `   Battery Level:           ${sensor.batteryLevel}%${sensor.isCharging ? ' (Charging)' : ''}\n`;
+      pdf += `   Last Update:             ${new Date(sensor.lastUpdate).toLocaleString()}\n\n`;
+    });
+
+    // Daily Summary
+    pdf += '───────────────────────────────────────────────────────────────\n';
+    pdf += '                      DAILY SUMMARY                            \n';
+    pdf += '───────────────────────────────────────────────────────────────\n\n';
+    pdf += 'Date          | Avg Temp | Avg Moisture | Readings\n';
+    pdf += '─────────────────────────────────────────────────────────────\n';
+
+    chartData.forEach(day => {
+      const date = day.date.padEnd(13);
+      const temp = day.avgTemp ? `${day.avgTemp}°C`.padEnd(8) : 'N/A     ';
+      const moisture = day.avgMoisture ? `${day.avgMoisture}%`.padEnd(12) : 'N/A         ';
+      const readings = day.readings.toString();
+      pdf += `${date} | ${temp} | ${moisture} | ${readings}\n`;
+    });
+
+    pdf += '\n';
+    pdf += '───────────────────────────────────────────────────────────────\n';
+    pdf += '                    RECOMMENDATIONS                            \n';
+    pdf += '───────────────────────────────────────────────────────────────\n\n';
+
+    // Generate recommendations based on data
+    const recommendations = [];
+    
+    if (stats.temperature && parseFloat(stats.temperature.max) > 30) {
+      recommendations.push('⚠ High temperatures detected. Consider improving ventilation.');
+    }
+    if (stats.moisture && parseFloat(stats.moisture.avg) > 18) {
+      recommendations.push('⚠ Elevated moisture levels. Monitor for potential mold growth.');
+    }
+    if (stats.battery && parseFloat(stats.battery.avg) < 30) {
+      recommendations.push('⚠ Low average battery levels. Schedule sensor maintenance.');
+    }
+    if (stats.activeSensors < stats.totalSensors) {
+      recommendations.push('⚠ Some sensors are offline. Check connectivity and battery.');
+    }
+    if (recommendations.length === 0) {
+      recommendations.push('✓ All metrics within normal ranges. Continue monitoring.');
+    }
+
+    recommendations.forEach(rec => {
+      pdf += `${rec}\n`;
+    });
+
+    pdf += '\n═══════════════════════════════════════════════════════════════\n';
+    pdf += '                      END OF REPORT                            \n';
+    pdf += '═══════════════════════════════════════════════════════════════\n';
+
+    // Download
+    const blob = new Blob([pdf], { type: 'text/plain;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `hayguard-report-${new Date().toISOString().split('T')[0]}.txt`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
+
+  if (loading) {
+    return (
+      <div className="reports">
+        <div className="reports-loading">Loading report data...</div>
+      </div>
+    );
+  }
+
+  if (!reportData || reportData.sensors.length === 0) {
+    return (
+      <div className="reports">
+        <div className="reports-empty">
+          <FileText size={48} />
+          <h3>No Data Available</h3>
+          <p>No paired sensors found. Pair sensors to start generating reports.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const { stats, chartData, trends } = reportData;
 
   return (
-    <div style={{ padding: '32px 24px', maxWidth: '1400px', margin: '0 auto' }}>
-      <div style={{ marginBottom: '32px' }}>
-        <h1>Reports & Analytics</h1>
-        <p style={{ color: '#6b7280' }}>Generate comprehensive reports and analyze your farm data</p>
+    <div className="reports page-container">
+      {/* Header */}
+      <div className="reports-header">
+        <div className="reports-actions">
+          <button className="btn btn-secondary" onClick={exportToCSV}>
+            <Download size={16} />
+            Export CSV
+          </button>
+          <button className="btn btn-primary" onClick={exportToPDF}>
+            <Download size={16} />
+            Export TXT
+          </button>
+        </div>
       </div>
 
-      {/* Report Generation Section */}
-      <div style={{ 
-        background: 'white', 
-        padding: '32px', 
-        borderRadius: '12px', 
-        border: '1px solid #e5e7eb', 
-        marginBottom: '32px',
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-      }}>
-        <h2 style={{ marginBottom: '24px' }}>Generate New Report</h2>
-        
-        {/* Report Type Selection */}
-        <div style={{ marginBottom: '24px' }}>
-          <label style={{ display: 'block', marginBottom: '12px', fontWeight: '600', color: '#374151' }}>
-            Select Report Type:
-          </label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-            {reportTypes.map(type => (
-              <div 
-                key={type.id}
-                onClick={() => setSelectedReportType(type.id)}
-                style={{ 
-                  padding: '16px', 
-                  border: selectedReportType === type.id ? '2px solid #3b82f6' : '1px solid #e5e7eb',
-                  borderRadius: '8px', 
-                  cursor: 'pointer',
-                  background: selectedReportType === type.id ? '#eff6ff' : 'white',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '24px' }}>{type.icon}</span>
-                  <h4 style={{ margin: '0', color: '#111827' }}>{type.name}</h4>
-                </div>
-                <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>
-                  {type.description}
-                </p>
-                <small style={{ color: '#9ca3af' }}>
-                  Est. generation time: {type.estimatedTime}
-                </small>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Time Period Selection */}
-        <div style={{ marginBottom: '24px' }}>
-          <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>
-            Time Period:
+      {/* Filters */}
+      <div className="reports-filters card">
+        <div className="filter-group">
+          <label>
+            <Calendar size={16} />
+            Date Range
           </label>
           <select 
-            value={selectedTimeframe}
-            onChange={(e) => setSelectedTimeframe(e.target.value)}
-            style={{ 
-              padding: '12px', 
-              border: '1px solid #d1d5db', 
-              borderRadius: '6px', 
-              width: '300px',
-              fontSize: '14px'
-            }}
+            value={dateRange} 
+            onChange={(e) => setDateRange(e.target.value)}
+            className="filter-select"
           >
-            {timeframes.map(tf => (
-              <option key={tf.value} value={tf.value}>{tf.label}</option>
-            ))}
+            <option value="7">Last 7 Days</option>
+            <option value="14">Last 14 Days</option>
+            <option value="30">Last 30 Days</option>
           </select>
         </div>
 
-        {/* Generate Button */}
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-          <button 
-            onClick={handleGenerateReport}
-            disabled={isGenerating}
-            style={{ 
-              background: isGenerating ? '#9ca3af' : '#10b981', 
-              color: 'white', 
-              padding: '12px 24px', 
-              border: 'none', 
-              borderRadius: '8px', 
-              cursor: isGenerating ? 'not-allowed' : 'pointer',
-              fontSize: '16px',
-              fontWeight: '600',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}
+        <div className="filter-group">
+          <label>Sensor</label>
+          <select 
+            value={selectedSensor} 
+            onChange={(e) => setSelectedSensor(e.target.value)}
+            className="filter-select"
           >
-            {isGenerating ? (
-              <>
-                <div style={{ 
-                  width: '16px', 
-                  height: '16px', 
-                  border: '2px solid #ffffff', 
-                  borderTop: '2px solid transparent', 
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite'
-                }}></div>
-                Generating Report...
-              </>
-            ) : (
-              <>
-                📊 Generate Report
-              </>
-            )}
-          </button>
-          
-          {isGenerating && (
-            <div style={{ color: '#6b7280', fontSize: '14px' }}>
-              This may take a few minutes depending on the data size...
-            </div>
-          )}
+            <option value="all">All Sensors (Average)</option>
+            {sensors.map(sensor => (
+              <option key={sensor.id} value={sensor.id}>
+                {sensor.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
-      {/* Generated Reports Section */}
-      <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-        <div style={{ padding: '24px', borderBottom: '1px solid #e5e7eb', background: '#f8fafc' }}>
-          <h2 style={{ margin: '0' }}>Generated Reports ({generatedReports.length})</h2>
-        </div>
-        
-        {generatedReports.length === 0 ? (
-          <div style={{ padding: '48px', textAlign: 'center' }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
-            <h3 style={{ color: '#6b7280', marginBottom: '8px' }}>No reports generated yet</h3>
-            <p style={{ color: '#9ca3af' }}>Generate your first report above to see it listed here.</p>
+      {/* Statistics Cards */}
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-header">
+            <span className="stat-label">Total Sensors</span>
           </div>
-        ) : (
-          <div>
-            {generatedReports.map(report => (
-              <div key={report.id} style={{ 
-                padding: '20px 24px', 
-                borderBottom: '1px solid #f3f4f6', 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center',
-                transition: 'background 0.2s ease'
-              }}
-              onMouseEnter={(e) => e.target.style.background = '#f8fafc'}
-              onMouseLeave={(e) => e.target.style.background = 'white'}
-              >
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                    <div style={{ 
-                      padding: '8px', 
-                      background: '#eff6ff', 
-                      borderRadius: '8px',
-                      fontSize: '20px'
-                    }}>
-                      📊
-                    </div>
-                    <div>
-                      <h4 style={{ margin: '0', color: '#111827', fontSize: '16px' }}>{report.name}</h4>
-                      <p style={{ margin: '0', color: '#6b7280', fontSize: '14px' }}>{report.type}</p>
-                    </div>
-                  </div>
-                  
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px', marginTop: '12px' }}>
-                    <div style={{ fontSize: '14px', color: '#6b7280' }}>
-                      <strong>Generated:</strong> {new Date(report.dateGenerated).toLocaleDateString()}
-                    </div>
-                    <div style={{ fontSize: '14px', color: '#6b7280' }}>
-                      <strong>Period:</strong> {report.timeframe}
-                    </div>
-                    <div style={{ fontSize: '14px', color: '#6b7280' }}>
-                      <strong>Size:</strong> {report.fileSize}
-                    </div>
-                    <div style={{ fontSize: '14px' }}>
-                      <span style={{ 
-                        background: '#dcfce7', 
-                        color: '#166534', 
-                        padding: '2px 8px', 
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                        fontWeight: '600'
-                      }}>
-                        {report.status.toUpperCase()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    onClick={() => handleDownloadReport(report)}
-                    style={{
-                      background: '#3b82f6',
-                      color: 'white',
-                      border: 'none',
-                      padding: '8px 16px',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: '500'
-                    }}
-                  >
-                    📥 Download CSV
-                  </button>
-                  <button
-                    onClick={() => handleDeleteReport(report.id)}
-                    style={{
-                      background: '#ef4444',
-                      color: 'white',
-                      border: 'none',
-                      padding: '8px 16px',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: '500'
-                    }}
-                  >
-                    🗑️ Delete
-                  </button>
-                </div>
-              </div>
-            ))}
+          <div className="stat-value">{stats.totalSensors}</div>
+          <div className="stat-footer">
+            {stats.activeSensors} active
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-header">
+            <span className="stat-label">Total Readings</span>
+          </div>
+          <div className="stat-value">{stats.totalReadings}</div>
+          <div className="stat-footer">
+            Last {dateRange} days
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-header">
+            <span className="stat-label">Bales Monitored</span>
+          </div>
+          <div className="stat-value">{stats.totalBalesMonitored}</div>
+          <div className="stat-footer">
+            Across all sensors
+          </div>
+        </div>
+
+        {stats.battery && (
+          <div className="stat-card">
+            <div className="stat-header">
+              <span className="stat-label">Avg Battery</span>
+            </div>
+            <div className="stat-value">{stats.battery.avg}%</div>
+            <div className="stat-footer">
+              Range: {stats.battery.min}% - {stats.battery.max}%
+            </div>
           </div>
         )}
       </div>
 
-      <style jsx>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
+      {/* Temperature Analysis */}
+      {stats.temperature && (
+        <div className="report-section card">
+          <div className="section-header">
+            <h3>Temperature Analysis</h3>
+            {trends && trends.temperature !== null && (
+              <div className={`trend-indicator ${getTrendClass(trends.temperature)}`}>
+                {getTrendIcon(trends.temperature)}
+                <span>
+                  {Math.abs(trends.temperature) < 0.5 ? 'Stable' : 
+                   trends.temperature > 0 ? `+${trends.temperature.toFixed(1)}°C` : 
+                   `${trends.temperature.toFixed(1)}°C`}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="stats-row">
+            <div className="stat-item">
+              <span className="stat-label">Average</span>
+              <span className="stat-value-large">{stats.temperature.avg}°C</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label">Minimum</span>
+              <span className="stat-value-large">{stats.temperature.min}°C</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label">Maximum</span>
+              <span className="stat-value-large">{stats.temperature.max}°C</span>
+            </div>
+          </div>
+
+          <div className="chart-container">
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  dataKey="date" 
+                  stroke="#6b7280"
+                  style={{ fontSize: '12px' }}
+                />
+                <YAxis 
+                  stroke="#6b7280"
+                  style={{ fontSize: '12px' }}
+                  label={{ value: '°C', angle: -90, position: 'insideLeft' }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#fff', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '6px'
+                  }}
+                />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="avgTemp" 
+                  stroke="#f59e0b" 
+                  strokeWidth={2}
+                  name="Average"
+                  dot={{ fill: '#f59e0b', r: 4 }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="maxTemp" 
+                  stroke="#ef4444" 
+                  strokeWidth={1}
+                  strokeDasharray="5 5"
+                  name="Maximum"
+                  dot={false}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="minTemp" 
+                  stroke="#3b82f6" 
+                  strokeWidth={1}
+                  strokeDasharray="5 5"
+                  name="Minimum"
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Moisture Analysis */}
+      {stats.moisture && (
+        <div className="report-section card">
+          <div className="section-header">
+            <h3>Moisture Analysis</h3>
+            {trends && trends.moisture !== null && (
+              <div className={`trend-indicator ${getTrendClass(trends.moisture)}`}>
+                {getTrendIcon(trends.moisture)}
+                <span>
+                  {Math.abs(trends.moisture) < 0.5 ? 'Stable' : 
+                   trends.moisture > 0 ? `+${trends.moisture.toFixed(1)}%` : 
+                   `${trends.moisture.toFixed(1)}%`}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="stats-row">
+            <div className="stat-item">
+              <span className="stat-label">Average</span>
+              <span className="stat-value-large">{stats.moisture.avg}%</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label">Minimum</span>
+              <span className="stat-value-large">{stats.moisture.min}%</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label">Maximum</span>
+              <span className="stat-value-large">{stats.moisture.max}%</span>
+            </div>
+          </div>
+
+          <div className="chart-container">
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  dataKey="date" 
+                  stroke="#6b7280"
+                  style={{ fontSize: '12px' }}
+                />
+                <YAxis 
+                  stroke="#6b7280"
+                  style={{ fontSize: '12px' }}
+                  label={{ value: '%', angle: -90, position: 'insideLeft' }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#fff', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '6px'
+                  }}
+                />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="avgMoisture" 
+                  stroke="#10b981" 
+                  strokeWidth={2}
+                  name="Average"
+                  dot={{ fill: '#10b981', r: 4 }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="maxMoisture" 
+                  stroke="#ef4444" 
+                  strokeWidth={1}
+                  strokeDasharray="5 5"
+                  name="Maximum"
+                  dot={false}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="minMoisture" 
+                  stroke="#3b82f6" 
+                  strokeWidth={1}
+                  strokeDasharray="5 5"
+                  name="Minimum"
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Daily Readings */}
+      <div className="report-section card">
+        <div className="section-header">
+          <h3>Daily Reading Summary</h3>
+        </div>
+        
+        <div className="chart-container">
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis 
+                dataKey="date" 
+                stroke="#6b7280"
+                style={{ fontSize: '12px' }}
+              />
+              <YAxis 
+                stroke="#6b7280"
+                style={{ fontSize: '12px' }}
+              />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: '#fff', 
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '6px'
+                }}
+              />
+              <Legend />
+              <Bar 
+                dataKey="readings" 
+                fill="#F4C430" 
+                name="Readings per Day"
+                radius={[4, 4, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
     </div>
   );
 };

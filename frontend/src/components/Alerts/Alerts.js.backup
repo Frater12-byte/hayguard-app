@@ -1,0 +1,375 @@
+import React, { useState, useEffect } from 'react';
+import { useData } from '../../contexts/DataContext';
+
+const AlertsNotifications = () => {
+  const [filteredAlerts, setFilteredAlerts] = useState([]);
+  const [filterType, setFilterType] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+
+  // Generate mock alerts for the last 7 days
+  const generateMockAlerts = () => {
+    const alertTypes = ['temperature', 'moisture', 'battery', 'connectivity', 'system'];
+    const severities = ['critical', 'warning', 'info'];
+    const statuses = ['new', 'acknowledged', 'resolved'];
+    const sensors = ['Sensor A1', 'Sensor B2', 'Sensor C3', 'Sensor D4', 'Sensor E5'];
+    
+    const mockAlerts = [];
+    const now = new Date();
+    
+    for (let i = 0; i < 25; i++) {
+      // Generate random date within last 7 days
+      const daysAgo = Math.floor(Math.random() * 7);
+      const hoursAgo = Math.floor(Math.random() * 24);
+      const minutesAgo = Math.floor(Math.random() * 60);
+      
+      const alertDate = new Date(now);
+      alertDate.setDate(alertDate.getDate() - daysAgo);
+      alertDate.setHours(alertDate.getHours() - hoursAgo);
+      alertDate.setMinutes(alertDate.getMinutes() - minutesAgo);
+      
+      const type = alertTypes[Math.floor(Math.random() * alertTypes.length)];
+      const severity = severities[Math.floor(Math.random() * severities.length)];
+      const status = statuses[Math.floor(Math.random() * statuses.length)];
+      const sensor = sensors[Math.floor(Math.random() * sensors.length)];
+      
+      let message = '';
+      switch (type) {
+        case 'temperature':
+          message = `High temperature detected: ${(25 + Math.random() * 15).toFixed(1)}°C`;
+          break;
+        case 'moisture':
+          message = `Moisture level ${severity === 'critical' ? 'critically' : ''} ${severity === 'warning' ? 'elevated' : 'changed'}: ${(10 + Math.random() * 15).toFixed(1)}%`;
+          break;
+        case 'battery':
+          message = `Battery level ${severity === 'critical' ? 'critically' : ''} low: ${Math.floor(10 + Math.random() * 40)}%`;
+          break;
+        case 'connectivity':
+          message = `${severity === 'critical' ? 'Lost' : 'Intermittent'} connection to sensor`;
+          break;
+        case 'system':
+          message = `System ${severity === 'critical' ? 'error' : severity === 'warning' ? 'warning' : 'notification'}`;
+          break;
+        default:
+          message = 'General alert notification';
+      }
+      
+      mockAlerts.push({
+        id: i + 1,
+        type,
+        severity,
+        status,
+        sensor,
+        message,
+        timestamp: alertDate.toISOString(),
+        description: `Alert from ${sensor} in Field ${Math.floor(Math.random() * 5) + 1}`,
+        acknowledgedBy: status === 'acknowledged' ? 'Demo Fra' : null,
+        acknowledgedAt: status === 'acknowledged' ? new Date(alertDate.getTime() + Math.random() * 3600000).toISOString() : null
+      });
+    }
+    
+    return mockAlerts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  };
+
+  const [allAlerts, setAllAlerts] = useState([]);
+
+  useEffect(() => {
+    const mockAlerts = generateMockAlerts();
+    setAllAlerts(mockAlerts);
+    setFilteredAlerts(mockAlerts);
+  }, []);
+
+  useEffect(() => {
+    let filtered = allAlerts;
+    
+    if (filterType !== 'all') {
+      filtered = filtered.filter(alert => alert.type === filterType);
+    }
+    
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(alert => alert.status === filterStatus);
+    }
+    
+    setFilteredAlerts(filtered);
+  }, [allAlerts, filterType, filterStatus]);
+
+  const handleAcknowledge = (alertId) => {
+    const updatedAlerts = allAlerts.map(alert =>
+      alert.id === alertId 
+        ? { 
+            ...alert, 
+            status: 'acknowledged',
+            acknowledgedBy: 'Demo Fra',
+            acknowledgedAt: new Date().toISOString()
+          }
+        : alert
+    );
+    setAllAlerts(updatedAlerts);
+  };
+
+  const handleResolve = (alertId) => {
+    const updatedAlerts = allAlerts.map(alert =>
+      alert.id === alertId 
+        ? { ...alert, status: 'resolved' }
+        : alert
+    );
+    setAllAlerts(updatedAlerts);
+  };
+
+  const getSeverityColor = (severity) => {
+    switch (severity) {
+      case 'critical': return '#dc3545';
+      case 'warning': return '#ffc107';
+      case 'info': return '#17a2b8';
+      default: return '#6c757d';
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'new': return '#007bff';
+      case 'acknowledged': return '#ffc107';
+      case 'resolved': return '#28a745';
+      default: return '#6c757d';
+    }
+  };
+
+  const getTypeIcon = (type) => {
+    switch (type) {
+      case 'temperature': return '🌡️';
+      case 'moisture': return '💧';
+      case 'battery': return '🔋';
+      case 'connectivity': return '📡';
+      case 'system': return '⚙️';
+      default: return '⚠️';
+    }
+  };
+
+  const formatTimeAgo = (timestamp) => {
+    const now = new Date();
+    const alertTime = new Date(timestamp);
+    const diffMs = now - alertTime;
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMinutes < 60) {
+      return `${diffMinutes} minutes ago`;
+    } else if (diffHours < 24) {
+      return `${diffHours} hours ago`;
+    } else {
+      return `${diffDays} days ago`;
+    }
+  };
+
+  const getAlertCounts = () => {
+    const critical = allAlerts.filter(a => a.severity === 'critical' && a.status === 'new').length;
+    const warning = allAlerts.filter(a => a.severity === 'warning' && a.status === 'new').length;
+    const total = allAlerts.filter(a => a.status === 'new').length;
+    
+    return { critical, warning, total };
+  };
+
+  const counts = getAlertCounts();
+
+    criticalAlerts: counts.critical,
+    warningAlerts: counts.warning,
+    totalNewAlerts: counts.total,
+    resolvedToday: 0
+  };
+
+  if (loading) {
+    return <div style={{ padding: '20px' }}>Loading alerts...</div>;
+  }
+
+  return (
+    <div style={{ padding: '20px', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
+      {/* Alert Summary Cards */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+        gap: '20px', 
+        marginBottom: '30px' 
+      }}>
+        <div style={{ 
+          backgroundColor: 'white', 
+          padding: '20px', 
+          borderRadius: '8px', 
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          textAlign: 'center'
+        }}>
+          <h3 style={{ margin: '0 0 10px 0', color: '#666', fontSize: '14px' }}>
+            Critical Alerts
+          </h3>
+          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#dc3545' }}>
+
+      {/* Alerts List */}
+      <div style={{ 
+        backgroundColor: 'white', 
+        padding: '20px', 
+        borderRadius: '8px', 
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)' 
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginBottom: '20px',
+          flexWrap: 'wrap',
+          gap: '10px'
+        }}>
+          <h2 style={{ margin: 0, fontSize: '20px' }}>Recent Alerts (Last 7 Days)</h2>
+          
+          {/* Filters */}
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              style={{
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                fontSize: '14px'
+              }}
+            >
+              <option value="all">All Types</option>
+              <option value="temperature">Temperature</option>
+              <option value="moisture">Moisture</option>
+              <option value="battery">Battery</option>
+              <option value="connectivity">Connectivity</option>
+              <option value="system">System</option>
+            </select>
+            
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              style={{
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                fontSize: '14px'
+              }}
+            >
+              <option value="all">All Status</option>
+              <option value="new">New</option>
+              <option value="acknowledged">Acknowledged</option>
+              <option value="resolved">Resolved</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Alerts List */}
+        <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
+          {filteredAlerts.length === 0 ? (
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '40px', 
+              color: '#666' 
+            }}>
+              No alerts found for the selected filters.
+            </div>
+          ) : (
+            filteredAlerts.map(alert => (
+              <div 
+                key={alert.id} 
+                style={{ 
+                  border: '1px solid #ddd', 
+                  borderRadius: '6px', 
+                  padding: '15px', 
+                  marginBottom: '10px',
+                  backgroundColor: alert.status === 'new' ? '#f8f9fa' : '#ffffff',
+                  borderLeft: `4px solid ${getSeverityColor(alert.severity)}`
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '20px' }}>{getTypeIcon(alert.type)}</span>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
+                        <span style={{ fontWeight: 'bold', fontSize: '16px' }}>{alert.sensor}</span>
+                        <span style={{ 
+                          padding: '2px 8px', 
+                          borderRadius: '12px', 
+                          fontSize: '11px',
+                          fontWeight: 'bold',
+                          color: 'white',
+                          backgroundColor: getSeverityColor(alert.severity)
+                        }}>
+                          {alert.severity.toUpperCase()}
+                        </span>
+                        <span style={{ 
+                          padding: '2px 8px', 
+                          borderRadius: '12px', 
+                          fontSize: '11px',
+                          fontWeight: 'bold',
+                          color: 'white',
+                          backgroundColor: getStatusColor(alert.status)
+                        }}>
+                          {alert.status.toUpperCase()}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#333', marginBottom: '3px' }}>
+                        {alert.message}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#666' }}>
+                        {alert.description}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '12px', color: '#888', marginBottom: '10px' }}>
+                      {formatTimeAgo(alert.timestamp)}
+                    </div>
+                    
+                    {alert.status === 'new' && (
+                      <div style={{ display: 'flex', gap: '5px' }}>
+                        <button
+                          onClick={() => handleAcknowledge(alert.id)}
+                          style={{
+                            backgroundColor: '#ffc107',
+                            color: 'white',
+                            border: 'none',
+                            padding: '4px 8px',
+                            borderRadius: '3px',
+                            cursor: 'pointer',
+                            fontSize: '11px'
+                          }}
+                        >
+                          Acknowledge
+                        </button>
+                        <button
+                          onClick={() => handleResolve(alert.id)}
+                          style={{
+                            backgroundColor: '#28a745',
+                            color: 'white',
+                            border: 'none',
+                            padding: '4px 8px',
+                            borderRadius: '3px',
+                            cursor: 'pointer',
+                            fontSize: '11px'
+                          }}
+                        >
+                          Resolve
+                        </button>
+                      </div>
+                    )}
+                    
+                    {alert.status === 'acknowledged' && alert.acknowledgedBy && (
+                      <div style={{ fontSize: '11px', color: '#666' }}>
+                        Acknowledged by {alert.acknowledgedBy}
+                        <br />
+                        {formatTimeAgo(alert.acknowledgedAt)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AlertsNotifications;

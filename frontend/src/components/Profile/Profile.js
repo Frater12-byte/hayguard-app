@@ -1,344 +1,517 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { User, Mail, Phone, Briefcase, Calendar, Shield, Key, Camera, X, Check } from 'lucide-react';
+import { useUser } from '../../contexts/UserContext';
+import './Profile.css';
 
-const Profile = ({ user, onUpdateUser }) => {
+const Profile = () => {
+  const { user, updateUser } = useUser();
+  
   const [isEditing, setIsEditing] = useState(false);
-  const [profileData, setProfileData] = useState({
-    name: user.name || '',
-    email: user.email || '',
-    phone: user.phone || '',
-    role: user.role || '',
-    location: user.location || '',
-    bio: user.bio || '',
-    profilePicture: user.profilePicture || ''
-  });
-  const [imagePreview, setImagePreview] = useState(user.profilePicture || '');
+  const [formData, setFormData] = useState(user || {});
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [notification, setNotification] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
 
-  const [activityData] = useState([
-    { action: 'Logged in', timestamp: '2 hours ago', details: 'Web application login' },
-    { action: 'Updated sensor thresholds', timestamp: '1 day ago', details: 'Modified temperature alerts for Sensor-A3' },
-    { action: 'Generated report', timestamp: '2 days ago', details: 'Monthly temperature and moisture analysis' },
-    { action: 'Added team member', timestamp: '3 days ago', details: 'Invited Sarah Johnson to the team' },
-    { action: 'Deployed new sensor', timestamp: '5 days ago', details: 'SENS-004 deployed in North Field' },
-    { action: 'Updated profile', timestamp: '1 week ago', details: 'Changed profile picture and contact info' }
-  ]);
+  useEffect(() => {
+    if (user) {
+      setFormData(user);
+    }
+  }, [user]);
 
-  const handleInputChange = (field, value) => {
-    setProfileData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const showNotification = (message, type = 'success') => {
+    if (!message) {
+      console.error('Notification called without message');
+      return;
+    }
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 4000);
   };
 
-  const handleImageUpload = (event) => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!formData.name || !formData.email) {
+      showNotification('Name and email are required', 'error');
+      return;
+    }
+
+    try {
+      await updateUser(formData);
+      
+      // Update Team section via localStorage
+      const teamMembers = JSON.parse(localStorage.getItem('hayguard_team_members') || '[]');
+      const updatedTeamMembers = teamMembers.map(member => 
+        member.isCurrentUser ? { ...member, ...formData } : member
+      );
+      localStorage.setItem('hayguard_team_members', JSON.stringify(updatedTeamMembers));
+      
+      setIsEditing(false);
+      
+      // Dispatch event for header
+      window.dispatchEvent(new CustomEvent('userUpdated', { 
+        detail: formData 
+      }));
+      
+      showNotification('Profile updated successfully!', 'success');
+    } catch (error) {
+      console.error('Update error:', error);
+      showNotification('Failed to update profile. Please try again.', 'error');
+    }
+  };
+
+  const handlePictureUpload = async (file) => {
+    if (!file) {
+      showNotification('No file selected', 'error');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      showNotification('Please select an image file (JPG, PNG, GIF)', 'error');
+      return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+      showNotification('File size must be less than 5MB', 'error');
+      return;
+    }
+
+    try {
+      const reader = new FileReader();
+      
+      reader.onload = async (e) => {
+        const result = e.target.result;
+        const updatedUserData = { ...user, profilePicture: result };
+        
+        await updateUser(updatedUserData);
+        
+        // Update Team section
+        const teamMembers = JSON.parse(localStorage.getItem('hayguard_team_members') || '[]');
+        const updatedTeamMembers = teamMembers.map(member => 
+          member.isCurrentUser ? { ...member, profilePicture: result } : member
+        );
+        localStorage.setItem('hayguard_team_members', JSON.stringify(updatedTeamMembers));
+        
+        // Dispatch event for header
+        window.dispatchEvent(new CustomEvent('userUpdated', { 
+          detail: updatedUserData 
+        }));
+        
+        showNotification('Profile picture updated successfully!', 'success');
+      };
+      
+      reader.onerror = () => {
+        showNotification('Error reading file. Please try again.', 'error');
+      };
+      
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Upload error:', error);
+      showNotification('Failed to update picture. Please try again.', 'error');
+    }
+  };
+
+  const handleFileInputChange = (event) => {
     const file = event.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert('File size must be less than 5MB');
-        return;
-      }
-
-      if (!file.type.startsWith('image/')) {
-        alert('Please select an image file');
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const imageDataUrl = e.target.result;
-        setImagePreview(imageDataUrl);
-        setProfileData(prev => ({
-          ...prev,
-          profilePicture: imageDataUrl
-        }));
-      };
-      reader.readAsDataURL(file);
+      handlePictureUpload(file);
     }
   };
 
-  const handleImageClick = () => {
-    if (isEditing) {
-      fileInputRef.current?.click();
-    }
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
   };
-  // eslint-disable-next-line no-unused-vars
-  const handleRemoveImage = () => {
-    setImagePreview('/default-avatar.png');
-    setProfileData(prev => ({
-      ...prev,
-      profilePicture: '/default-avatar.png'
-    }));
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      handlePictureUpload(file);
     }
   };
 
-  const handleSave = () => {
-    onUpdateUser(profileData);
-    setIsEditing(false);
+  const handleRemovePicture = async () => {
+    if (!window.confirm('Are you sure you want to remove your profile picture?')) {
+      return;
+    }
+
+    try {
+      const updatedUserData = { ...user, profilePicture: null };
+      
+      await updateUser(updatedUserData);
+      
+      // Update Team section
+      const teamMembers = JSON.parse(localStorage.getItem('hayguard_team_members') || '[]');
+      const updatedTeamMembers = teamMembers.map(member => 
+        member.isCurrentUser ? { ...member, profilePicture: null } : member
+      );
+      localStorage.setItem('hayguard_team_members', JSON.stringify(updatedTeamMembers));
+      
+      // Dispatch event for header
+      window.dispatchEvent(new CustomEvent('userUpdated', { 
+        detail: updatedUserData 
+      }));
+      
+      showNotification('Profile picture removed successfully!', 'success');
+    } catch (error) {
+      console.error('Remove picture error:', error);
+      showNotification('Failed to remove picture. Please try again.', 'error');
+    }
   };
 
-  const handleCancel = () => {
-    setProfileData({
-      name: user.name || '',
-      email: user.email || '',
-      phone: user.phone || '',
-      role: user.role || '',
-      location: user.location || '',
-      bio: user.bio || '',
-      profilePicture: user.profilePicture || ''
-    });
-    setImagePreview(user.profilePicture || '');
-    setIsEditing(false);
+  const handlePasswordChange = (e) => {
+    e.preventDefault();
+    // In a real app, this would call an API to change the password
+    showNotification('Password changed successfully!', 'success');
+    setIsChangingPassword(false);
   };
+
+  const getRoleBadgeClass = (role) => {
+    switch (role) {
+      case 'admin': return 'role-badge admin';
+      case 'manager': return 'role-badge manager';
+      default: return 'role-badge user';
+    }
+  };
+
+  const getRoleLabel = (role) => {
+    switch (role) {
+      case 'admin': return 'Farm Owner';
+      case 'manager': return 'Farm Manager';
+      default: return 'Worker';
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="profile-page">
+        <div className="loading-message">Loading profile...</div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: '32px 24px', maxWidth: '1200px', margin: '0 auto' }}>
-      <div style={{ marginBottom: '24px' }}>
-        <h1>My Profile</h1>
-        <p style={{ color: '#6b7280' }}>Manage your account settings and view your activity</p>
-      </div>
+    <div className="profile-page">
+      {notification && (
+        <div className={`notification notification-${notification.type}`}>
+          <span>{notification.message}</span>
+          <button 
+            className="notification-close"
+            onClick={() => setNotification(null)}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
-      <div style={{ display: 'grid', gap: '24px', gridTemplateColumns: '1fr 1fr' }}>
-        <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-            <h2>Profile Information</h2>
-            {!isEditing ? (
-              <button 
-                onClick={() => setIsEditing(true)}
-                style={{ background: '#3b82f6', color: 'white', padding: '8px 16px', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
-              >
-                Edit Profile
-              </button>
-            ) : (
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button 
-                  onClick={handleSave}
-                  style={{ background: '#10b981', color: 'white', padding: '8px 16px', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
-                >
-                  Save
-                </button>
-                <button 
-                  onClick={handleCancel}
-                  style={{ background: '#6b7280', color: 'white', padding: '8px 16px', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '24px' }}>
-            <div style={{ position: 'relative' }}>
-              <img 
-                src={imagePreview || '/default-avatar.png'} 
-                alt="Profile" 
-                style={{ 
-                  width: '120px', 
-                  height: '120px', 
-                  borderRadius: '50%', 
-                  objectFit: 'cover', 
-                  border: '4px solid #e5e7eb',
-                  cursor: isEditing ? 'pointer' : 'default'
-                }}
-                onClick={handleImageClick}
-              />
-              {isEditing && (
-                <button 
-                  onClick={handleImageClick}
-                  style={{ 
-                    position: 'absolute', 
-                    bottom: '5px', 
-                    right: '5px', 
-                    background: '#3b82f6', 
-                    color: 'white', 
-                    border: 'none', 
-                    borderRadius: '50%', 
-                    width: '36px', 
-                    height: '36px', 
-                    cursor: 'pointer',
-                    fontSize: '16px'
-                  }}
-                >
-                  📷
-                </button>
-              )}
+      {/* Profile Header */}
+      <div className="profile-header-card">
+        <div className="profile-header-content">
+          <div className="profile-picture-section">
+            <div 
+              className={`profile-picture-upload-area ${isDragging ? 'dragging' : ''}`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
-                onChange={handleImageUpload}
-                style={{ display: 'none' }}
+                onChange={handleFileInputChange}
+                className="picture-upload-input"
               />
-            </div>
-            <div style={{ flex: 1 }}>
-              <h3 style={{ margin: '0 0 8px 0', fontSize: '1.5rem' }}>{profileData.name}</h3>
-              <p style={{ margin: '0 0 4px 0', color: '#6b7280' }}>{profileData.role}</p>
-              <p style={{ margin: '0', color: '#6b7280', fontSize: '0.9rem' }}>{profileData.location}</p>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gap: '16px' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>
-                Full Name
-              </label>
-              {isEditing ? (
-                <input 
-                  type="text"
-                  value={profileData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  style={{ width: '100%', padding: '12px', border: '1px solid #d1d5db', borderRadius: '6px' }}
-                />
+              
+              {user.profilePicture ? (
+                <>
+                  <img 
+                    src={user.profilePicture} 
+                    alt="Profile" 
+                    className="profile-picture"
+                  />
+                  <div className="picture-overlay">
+                    <Camera size={24} />
+                    <span>Change Photo</span>
+                  </div>
+                </>
               ) : (
-                <p style={{ margin: '0', padding: '12px', background: '#f9fafb', borderRadius: '6px' }}>{profileData.name}</p>
-              )}
-            </div>
-
-            <div>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>
-                Email Address
-              </label>
-              {isEditing ? (
-                <input 
-                  type="email"
-                  value={profileData.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
-                  style={{ width: '100%', padding: '12px', border: '1px solid #d1d5db', borderRadius: '6px' }}
-                />
-              ) : (
-                <p style={{ margin: '0', padding: '12px', background: '#f9fafb', borderRadius: '6px' }}>{profileData.email}</p>
-              )}
-            </div>
-
-            <div>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>
-                Phone Number
-              </label>
-              {isEditing ? (
-                <input 
-                  type="tel"
-                  value={profileData.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
-                  style={{ width: '100%', padding: '12px', border: '1px solid #d1d5db', borderRadius: '6px' }}
-                />
-              ) : (
-                <p style={{ margin: '0', padding: '12px', background: '#f9fafb', borderRadius: '6px' }}>
-                  {profileData.phone || 'Not provided'}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>
-                Role
-              </label>
-              {isEditing ? (
-                <select 
-                  value={profileData.role}
-                  onChange={(e) => handleInputChange('role', e.target.value)}
-                  style={{ width: '100%', padding: '12px', border: '1px solid #d1d5db', borderRadius: '6px' }}
-                >
-                  <option value="">Select Role</option>
-                  <option value="Farm Owner">Farm Owner</option>
-                  <option value="Farm Manager">Farm Manager</option>
-                  <option value="Sensor Technician">Sensor Technician</option>
-                  <option value="Analytics Specialist">Analytics Specialist</option>
-                </select>
-              ) : (
-                <p style={{ margin: '0', padding: '12px', background: '#f9fafb', borderRadius: '6px' }}>{profileData.role}</p>
-              )}
-            </div>
-
-            <div>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>
-                Location
-              </label>
-              {isEditing ? (
-                <input 
-                  type="text"
-                  value={profileData.location}
-                  onChange={(e) => handleInputChange('location', e.target.value)}
-                  style={{ width: '100%', padding: '12px', border: '1px solid #d1d5db', borderRadius: '6px' }}
-                />
-              ) : (
-                <p style={{ margin: '0', padding: '12px', background: '#f9fafb', borderRadius: '6px' }}>
-                  {profileData.location || 'Not provided'}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>
-                Bio
-              </label>
-              {isEditing ? (
-                <textarea 
-                  value={profileData.bio}
-                  onChange={(e) => handleInputChange('bio', e.target.value)}
-                  rows={3}
-                  style={{ width: '100%', padding: '12px', border: '1px solid #d1d5db', borderRadius: '6px', resize: 'vertical' }}
-                />
-              ) : (
-                <p style={{ margin: '0', padding: '12px', background: '#f9fafb', borderRadius: '6px', minHeight: '60px' }}>
-                  {profileData.bio || 'No bio provided'}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
-          <h2 style={{ marginBottom: '24px' }}>Recent Activity</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {activityData.map((activity, index) => (
-              <div key={index} style={{ 
-                padding: '16px', 
-                background: '#f8fafc', 
-                borderRadius: '8px', 
-                borderLeft: '4px solid #3b82f6' 
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                  <h4 style={{ margin: '0', color: '#1f2937', fontSize: '14px', fontWeight: '600' }}>
-                    {activity.action}
-                  </h4>
-                  <span style={{ fontSize: '12px', color: '#6b7280' }}>
-                    {activity.timestamp}
-                  </span>
+                <div className="profile-picture-placeholder">
+                  <div className="placeholder-icon">
+                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                  <div className="picture-overlay">
+                    <Camera size={24} />
+                    <span>Upload Photo</span>
+                  </div>
                 </div>
-                <p style={{ margin: '0', fontSize: '13px', color: '#6b7280' }}>
-                  {activity.details}
-                </p>
+              )}
+            </div>
+            
+            {user.profilePicture && (
+              <button 
+                type="button"
+                className="btn btn-danger btn-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRemovePicture();
+                }}
+              >
+                <X size={16} />
+                Remove Photo
+              </button>
+            )}
+            <p className="upload-hint">Click or drag to upload</p>
+          </div>
+          
+          <div className="profile-info-section">
+            <h2 className="profile-name">{user.name}</h2>
+            <div className={getRoleBadgeClass(user.role)}>
+              {getRoleLabel(user.role)}
+            </div>
+            <div className="profile-meta">
+              <div className="meta-item">
+                <Mail size={16} />
+                <span>{user.email}</span>
               </div>
-            ))}
+              {user.phone && (
+                <div className="meta-item">
+                  <Phone size={16} />
+                  <span>{user.phone}</span>
+                </div>
+              )}
+              <div className="meta-item">
+                <Calendar size={16} />
+                <span>Member since {user.joinDate ? new Date(user.joinDate).toLocaleDateString() : 'Unknown'}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div style={{ 
-        background: 'white', 
-        padding: '24px', 
-        borderRadius: '12px', 
-        border: '1px solid #e5e7eb', 
-        marginTop: '24px' 
-      }}>
-        <h2 style={{ marginBottom: '24px' }}>Account Statistics</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px' }}>
-          <div style={{ textAlign: 'center', padding: '16px' }}>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3b82f6', marginBottom: '8px' }}>127</div>
-            <div style={{ color: '#6b7280', fontSize: '14px' }}>Actions Performed</div>
+      <div className="profile-content-grid">
+        {/* Profile Information Card */}
+        <div className="profile-card">
+          <div className="card-header">
+            <div className="card-title">
+              <User size={20} />
+              <h3>Profile Information</h3>
+            </div>
+            {!isEditing && (
+              <button className="btn btn-primary btn-sm" onClick={() => setIsEditing(true)}>
+                Edit Information
+              </button>
+            )}
           </div>
-          <div style={{ textAlign: 'center', padding: '16px' }}>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#10b981', marginBottom: '8px' }}>23</div>
-            <div style={{ color: '#6b7280', fontSize: '14px' }}>Sensors Managed</div>
+
+          {isEditing ? (
+            <div className="profile-form">
+              <div className="form-group">
+                <label htmlFor="profile-name">Full Name *</label>
+                <input
+                  type="text"
+                  id="profile-name"
+                  value={formData.name || ''}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="form-input"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="profile-email">Email *</label>
+                <input
+                  type="email"
+                  id="profile-email"
+                  value={formData.email || ''}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="form-input"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="profile-phone">Phone</label>
+                <input
+                  type="tel"
+                  id="profile-phone"
+                  value={formData.phone || ''}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="form-input"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="profile-department">Department</label>
+                <input
+                  type="text"
+                  id="profile-department"
+                  value={formData.department || ''}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  className="form-input"
+                />
+              </div>
+
+              <div className="profile-actions">
+                <button type="button" className="btn btn-primary" onClick={handleSubmit}>
+                  <Check size={16} />
+                  Save Changes
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => {
+                  setFormData(user || {});
+                  setIsEditing(false);
+                }}>
+                  <X size={16} />
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="profile-display">
+              <div className="info-item">
+                <label>Full Name</label>
+                <div className="info-value">{user.name || 'Not set'}</div>
+              </div>
+              <div className="info-item">
+                <label>Email</label>
+                <div className="info-value">{user.email || 'Not set'}</div>
+              </div>
+              <div className="info-item">
+                <label>Role</label>
+                <div className="info-value">{getRoleLabel(user.role)}</div>
+              </div>
+              <div className="info-item">
+                <label>Phone</label>
+                <div className="info-value">{user.phone || 'Not set'}</div>
+              </div>
+              <div className="info-item">
+                <label>Department</label>
+                <div className="info-value">{user.department || 'Not set'}</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Security Settings Card */}
+        <div className="profile-card">
+          <div className="card-header">
+            <div className="card-title">
+              <Shield size={20} />
+              <h3>Security Settings</h3>
+            </div>
+            {!isChangingPassword && (
+              <button className="btn btn-secondary btn-sm" onClick={() => setIsChangingPassword(true)}>
+                <Key size={16} />
+                Change Password
+              </button>
+            )}
           </div>
-          <div style={{ textAlign: 'center', padding: '16px' }}>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#f59e0b', marginBottom: '8px' }}>45</div>
-            <div style={{ color: '#6b7280', fontSize: '14px' }}>Reports Generated</div>
+
+          {isChangingPassword ? (
+            <div className="profile-form">
+              <div className="form-group">
+                <label htmlFor="current-password">Current Password</label>
+                <input
+                  type="password"
+                  id="current-password"
+                  className="form-input"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="new-password">New Password</label>
+                <input
+                  type="password"
+                  id="new-password"
+                  className="form-input"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="confirm-password">Confirm Password</label>
+                <input
+                  type="password"
+                  id="confirm-password"
+                  className="form-input"
+                  required
+                />
+              </div>
+              <div className="profile-actions">
+                <button type="button" className="btn btn-primary" onClick={handlePasswordChange}>
+                  <Check size={16} />
+                  Update Password
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => setIsChangingPassword(false)}>
+                  <X size={16} />
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="profile-display">
+              <div className="info-item">
+                <label>Password</label>
+                <div className="info-value">••••••••••••</div>
+              </div>
+              <div className="info-item">
+                <label>Account Status</label>
+                <div className="info-value status-active">
+                  <Check size={16} />
+                  Active
+                </div>
+              </div>
+              <div className="info-item">
+                <label>Last Login</label>
+                <div className="info-value">
+                  {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : 'Unknown'}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Permissions Card */}
+        <div className="profile-card permissions-card">
+          <div className="card-header">
+            <div className="card-title">
+              <Briefcase size={20} />
+              <h3>Permissions & Access</h3>
+            </div>
           </div>
-          <div style={{ textAlign: 'center', padding: '16px' }}>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#8b5cf6', marginBottom: '8px' }}>12</div>
-            <div style={{ color: '#6b7280', fontSize: '14px' }}>Days Active</div>
+
+          <div className="permissions-grid">
+            <div className="permission-item">
+              <Check size={16} className="permission-icon" />
+              <span>View farm data</span>
+            </div>
+            <div className="permission-item">
+              <Check size={16} className="permission-icon" />
+              <span>Monitor sensors</span>
+            </div>
+            <div className="permission-item">
+              <Check size={16} className="permission-icon" />
+              <span>View reports</span>
+            </div>
+            <div className="permission-item">
+              <Check size={16} className="permission-icon" />
+              <span>Manage team members</span>
+            </div>
+            <div className="permission-item">
+              <Check size={16} className="permission-icon" />
+              <span>Configure settings</span>
+            </div>
+            <div className="permission-item">
+              <Check size={16} className="permission-icon" />
+              <span>Export data</span>
+            </div>
           </div>
         </div>
       </div>

@@ -1,139 +1,39 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+// src/components/Header.js
+import React from 'react';
+import { useUser } from '../contexts/UserContext';
+import ProfileDropdown from './ProfileDropdown';
+import NotificationDropdown from './NotificationDropdown';
 import './Header.css';
 
-const Header = ({ user, onLogout, onToggleSidebar }) => {
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const navigate = useNavigate();
+const Header = ({ onLogout, onToggleSidebar }) => {
+  const { user } = useUser();
 
-  const notifications = [
-    { 
-      id: 1, 
-      type: 'critical', 
-      title: 'High Temperature Alert', 
-      message: 'Sensor HB-2024-002 detected 85°C in South Field B',
-      time: '5 min ago',
-      gravity: 'Critical - Immediate Action Required'
-    },
-    { 
-      id: 2, 
-      type: 'warning', 
-      title: 'Moisture Level Warning', 
-      message: 'Sensor HB-2024-001 shows moisture at 18.2%',
-      time: '15 min ago',
-      gravity: 'Warning - Monitor Closely'
-    },
-    { 
-      id: 3, 
-      type: 'info', 
-      title: 'Sensor Deployed', 
-      message: 'New sensor SENS-003 successfully deployed',
-      time: '1 hour ago',
-      gravity: 'Info - Normal Activity'
-    }
-  ];
-
-  const handleNotificationClick = () => {
-    setShowNotifications(!showNotifications);
-    setShowProfileMenu(false);
-  };
-
-  const handleProfileClick = () => {
-    setShowProfileMenu(!showProfileMenu);
-    setShowNotifications(false);
-  };
-
-  const handleViewAllNotifications = () => {
-    setShowNotifications(false);
-    navigate('/alerts');
-  };
-
-  const handleProfileNavigation = () => {
-    setShowProfileMenu(false);
-    navigate('/profile');
-  };
+  if (!user) {
+    return null;
+  }
 
   return (
     <header className="header">
       <div className="header-left">
-        <button className="sidebar-toggle" onClick={onToggleSidebar}>
-          ☰
+        <button 
+          className="mobile-menu-btn" 
+          onClick={onToggleSidebar}
+          aria-label="Toggle sidebar"
+        >
+          <span className="hamburger-line"></span>
+          <span className="hamburger-line"></span>
+          <span className="hamburger-line"></span>
         </button>
       </div>
-
+      
       <div className="header-right">
-        <div className="notification-container">
-          <button 
-            className="notification-btn"
-            onClick={handleNotificationClick}
-          >
-            <span className="notification-icon">🔔</span>
-            <span className="notification-badge">3</span>
-          </button>
-          
-          {showNotifications && (
-            <div className="notification-dropdown">
-              <div className="notification-header">
-                <h3>Notifications</h3>
-                <span className="notification-count">{notifications.length} new</span>
-              </div>
-              <div className="notification-list">
-                {notifications.map(notification => (
-                  <div key={notification.id} className={`notification-item ${notification.type}`}>
-                    <div className="notification-content">
-                      <div className="notification-title">{notification.title}</div>
-                      <div className="notification-message">{notification.message}</div>
-                      <div className="notification-gravity">{notification.gravity}</div>
-                      <div className="notification-time">{notification.time}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="notification-footer">
-                <button className="view-all-btn" onClick={handleViewAllNotifications}>
-                  View All Notifications
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="profile-container">
-          <button className="profile-btn" onClick={handleProfileClick}>
-            <img 
-              src={user.profilePicture || '/default-avatar.png'} 
-              alt={user.name} 
-              className="profile-avatar"
-            />
-            <span className="profile-name">{user.name}</span>
-          </button>
-
-          {showProfileMenu && (
-            <div className="profile-dropdown">
-              <div className="profile-info">
-                <img 
-                  src={user.profilePicture || '/default-avatar.png'} 
-                  alt={user.name} 
-                  className="profile-avatar-large"
-                />
-                <div>
-                  <div className="profile-name-large">{user.name}</div>
-                  <div className="profile-email">{user.email}</div>
-                </div>
-              </div>
-              <div className="profile-menu">
-                <button className="profile-menu-item" onClick={handleProfileNavigation}>
-                  👤 My Profile
-                </button>
-                <hr />
-                <button className="profile-menu-item logout" onClick={onLogout}>
-                  🚪 Logout
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        <NotificationDropdown />
+        
+        {/* Key prop forces re-render when picture changes */}
+        <ProfileDropdown 
+          onLogout={onLogout} 
+          key={user?.profilePicture || Date.now()}
+        />
       </div>
     </header>
   );

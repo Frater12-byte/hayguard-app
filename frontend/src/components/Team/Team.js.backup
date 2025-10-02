@@ -1,372 +1,550 @@
-import React, { useState } from 'react';
+// src/components/Team/Team.js
+import React, { useState, useEffect } from 'react';
+import { UserPlus, Key, Edit2, Mail, Clock, Trash2 } from 'lucide-react';
+import { useUser } from '../../contexts/UserContext';
+import './Team.css';
+
+const TEAM_STORAGE_KEY = 'hayguard_team_members';
 
 const Team = () => {
-  const [teamMembers, setTeamMembers] = useState([
-    {
-      id: 1,
-      name: 'Sarah Johnson',
-      email: 'sarah@hayguard.com',
-      phone: '+1 (555) 123-4567',
-      role: 'Farm Manager',
-      status: 'active',
-      lastActive: '2 hours ago',
-      joinDate: '2024-01-15'
-    },
-    {
-      id: 2,
-      name: 'Mike Chen',
-      email: 'mike@hayguard.com',
-      phone: '+1 (555) 234-5678',
-      role: 'Sensor Technician',
-      status: 'active',
-      lastActive: '5 hours ago',
-      joinDate: '2024-02-01'
-    },
-    {
-      id: 3,
-      name: 'Alex Rivera',
-      email: 'alex@hayguard.com',
-      phone: '+1 (555) 345-6789',
-      role: 'Analytics Specialist',
-      status: 'offline',
-      lastActive: '1 day ago',
-      joinDate: '2024-01-20'
-    }
-  ]);
-
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingMember, setEditingMember] = useState(null);
-  const [formData, setFormData] = useState({
+  const { user: contextUser } = useUser();
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [notification, setNotification] = useState(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [editForm, setEditForm] = useState({
     name: '',
     email: '',
-    phone: '',
-    role: 'Farm Manager'
+    role: ''
+  });
+  const [inviteForm, setInviteForm] = useState({
+    email: '',
+    role: 'Worker'
   });
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleAddMember = () => {
-    const newMember = {
-      id: teamMembers.length + 1,
-      ...formData,
-      status: 'active',
-      lastActive: 'Just added',
-      joinDate: new Date().toISOString().split('T')[0]
-    };
+  // Load team members from localStorage
+  const loadTeamMembers = () => {
+    try {
+      const stored = localStorage.getItem(TEAM_STORAGE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error('Error loading team members:', error);
+    }
     
-    setTeamMembers(prev => [...prev, newMember]);
-    setFormData({ name: '', email: '', phone: '', role: 'Farm Manager' });
-    setShowAddForm(false);
+    // Default team members if nothing in storage
+    return [
+      {
+        id: 1,
+        name: 'Demo User',
+        email: 'demo@greenfieldfarm.com',
+        role: 'admin',
+        status: 'active',
+        joinedDate: '2024-01-15',
+        lastActive: new Date().toISOString(),
+        isCurrentUser: true,
+        profilePicture: null
+      },
+      {
+        id: 2,
+        name: 'Sarah Johnson',
+        email: 'sarah@greenfieldfarm.com',
+        role: 'manager',
+        status: 'active',
+        joinedDate: '2024-03-10',
+        lastActive: '2025-09-25T08:45:00Z',
+        isCurrentUser: false,
+        profilePicture: null
+      },
+      {
+        id: 3,
+        name: 'Mike Wilson',
+        email: 'mike@greenfieldfarm.com',
+        role: 'worker',
+        status: 'active',
+        joinedDate: '2024-06-20',
+        lastActive: '2025-09-24T17:30:00Z',
+        isCurrentUser: false,
+        profilePicture: null
+      }
+    ];
   };
 
-  const handleEditMember = (member) => {
-    setEditingMember(member.id);
-    setFormData({
-      name: member.name,
-      email: member.email,
-      phone: member.phone,
-      role: member.role
+  // Save team members to localStorage
+  const saveTeamMembers = (members) => {
+    try {
+      localStorage.setItem(TEAM_STORAGE_KEY, JSON.stringify(members));
+    } catch (error) {
+      console.error('Error saving team members:', error);
+    }
+  };
+
+  // Sync current user from context to team members
+  const syncCurrentUserToTeam = (updatedUser) => {
+    if (!updatedUser) return;
+
+    setTeamMembers(prevMembers => {
+      const updatedMembers = prevMembers.map(member => {
+        if (member.isCurrentUser) {
+          return {
+            ...member,
+            name: updatedUser.name || member.name,
+            email: updatedUser.email || member.email,
+            role: updatedUser.role || member.role,
+            phone: updatedUser.phone,
+            department: updatedUser.department,
+            profilePicture: updatedUser.profilePicture
+          };
+        }
+        return member;
+      });
+
+      saveTeamMembers(updatedMembers);
+      return updatedMembers;
     });
   };
 
-  const handleUpdateMember = () => {
-    setTeamMembers(prev => prev.map(member => 
-      member.id === editingMember 
-        ? { ...member, ...formData }
-        : member
-    ));
-    setEditingMember(null);
-    setFormData({ name: '', email: '', phone: '', role: 'Farm Manager' });
+  // Initial load
+  useEffect(() => {
+    setTimeout(() => {
+      const members = loadTeamMembers();
+      const user = members.find(m => m.isCurrentUser);
+      
+      setCurrentUser(user);
+      setTeamMembers(members);
+      setLoading(false);
+    }, 500);
+  }, []);
+
+  // Sync when context user changes (from Profile updates)
+  useEffect(() => {
+    if (contextUser) {
+      syncCurrentUserToTeam(contextUser);
+      setCurrentUser(prev => ({
+        ...prev,
+        ...contextUser,
+        isCurrentUser: true
+      }));
+    }
+  }, [contextUser]);
+
+  // Listen for userUpdated events (backup sync mechanism)
+  useEffect(() => {
+    const handleUserUpdate = (event) => {
+      console.log('Team received user update:', event.detail);
+      syncCurrentUserToTeam(event.detail);
+    };
+
+    window.addEventListener('userUpdated', handleUserUpdate);
+    return () => window.removeEventListener('userUpdated', handleUserUpdate);
+  }, []);
+
+  const showNotification = (message, type = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 4000);
   };
 
-  const handleDeleteMember = (memberId) => {
-    if (window.confirm('Are you sure you want to remove this team member?')) {
-      setTeamMembers(prev => prev.filter(member => member.id !== memberId));
+  const generateRandomPassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setNewPassword(password);
+  };
+
+  const handlePasswordReset = async () => {
+    if (!newPassword.trim()) {
+      showNotification('Please generate or enter a password', 'error');
+      return;
+    }
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      showNotification(`Password updated for ${selectedMember.name}`, 'success');
+      setShowPasswordModal(false);
+      setSelectedMember(null);
+      setNewPassword('');
+    } catch (error) {
+      showNotification('Failed to reset password', 'error');
     }
   };
 
-  const cancelEdit = () => {
-    setEditingMember(null);
-    setShowAddForm(false);
-    setFormData({ name: '', email: '', phone: '', role: 'Farm Manager' });
+  const handleEditMember = async (e) => {
+    e.preventDefault();
+    try {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const updatedMembers = teamMembers.map(member => 
+        member.id === selectedMember.id 
+          ? { ...member, ...editForm }
+          : member
+      );
+      
+      setTeamMembers(updatedMembers);
+      saveTeamMembers(updatedMembers);
+      showNotification('Team member updated successfully!', 'success');
+      setShowEditModal(false);
+      setSelectedMember(null);
+    } catch (error) {
+      showNotification('Failed to update member', 'error');
+    }
   };
 
-  const getStatusColor = (status) => {
-    return status === 'active' ? '#10b981' : '#6b7280';
+  const handleDeleteMember = async () => {
+    try {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const updatedMembers = teamMembers.filter(member => member.id !== selectedMember.id);
+      
+      setTeamMembers(updatedMembers);
+      saveTeamMembers(updatedMembers);
+      showNotification(`${selectedMember.name} removed from team`, 'success');
+      setShowDeleteModal(false);
+      setSelectedMember(null);
+    } catch (error) {
+      showNotification('Failed to delete member', 'error');
+    }
   };
 
-  const getStatusBackground = (status) => {
-    return status === 'active' ? '#dcfce7' : '#f3f4f6';
+  const handleInviteMember = async (e) => {
+    e.preventDefault();
+    try {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const emailName = inviteForm.email.split('@')[0];
+      const newMember = {
+        id: Math.max(...teamMembers.map(m => m.id)) + 1,
+        name: emailName.charAt(0).toUpperCase() + emailName.slice(1),
+        email: inviteForm.email,
+        role: inviteForm.role === 'Farm Owner' ? 'admin' : 
+              inviteForm.role === 'Farm Manager' ? 'manager' : 'worker',
+        status: 'active',
+        joinedDate: new Date().toISOString().split('T')[0],
+        lastActive: new Date().toISOString(),
+        isCurrentUser: false,
+        profilePicture: null
+      };
+      
+      const updatedMembers = [...teamMembers, newMember];
+      setTeamMembers(updatedMembers);
+      saveTeamMembers(updatedMembers);
+      showNotification(`Invitation sent to ${inviteForm.email}!`, 'success');
+      setInviteForm({ email: '', role: 'Worker' });
+    } catch (error) {
+      showNotification('Failed to send invitation', 'error');
+    }
+  };
+
+  const openEditModal = (member) => {
+    setSelectedMember(member);
+    setEditForm({
+      name: member.name,
+      email: member.email,
+      role: member.role
+    });
+    setShowEditModal(true);
+  };
+
+  const openDeleteModal = (member) => {
+    setSelectedMember(member);
+    setShowDeleteModal(true);
+  };
+
+  const formatLastActive = (timestamp) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now - date) / (1000 * 60));
+    
+    if (diffInMinutes < 5) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays === 1) return 'Yesterday';
+    if (diffInDays < 7) return `${diffInDays}d ago`;
+    
+    return date.toLocaleDateString();
+  };
+
+  const getRoleBadgeClass = (role) => {
+    const normalizedRole = role === 'admin' ? 'owner' : 
+                           role === 'manager' ? 'manager' : 'worker';
+    return `role-badge ${normalizedRole}`;
+  };
+
+  const getRoleDisplay = (role) => {
+    switch (role) {
+      case 'admin': return 'Farm Owner';
+      case 'manager': return 'Farm Manager';
+      case 'worker': return 'Worker';
+      default: return role;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="team-page">
+        <div className="team-loading">Loading team members...</div>
+      </div>
+    );
+  }
+
+  const canManageMember = (member) => {
+    return currentUser && 
+      (currentUser.role === 'admin' || currentUser.role === 'manager') &&
+      !member.isCurrentUser;
   };
 
   return (
-    <div style={{ padding: '24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <div>
-          <h1>Team Management</h1>
-          <p style={{ color: '#6b7280' }}>Manage your farm monitoring team</p>
-        </div>
-        <button 
-          onClick={() => setShowAddForm(!showAddForm)}
-          style={{ 
-            background: '#10b981', 
-            color: 'white', 
-            padding: '12px 24px', 
-            border: 'none', 
-            borderRadius: '8px', 
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: '500'
-          }}
-        >
-          + Add Team Member
-        </button>
-      </div>
-
-      {(showAddForm || editingMember) && (
-        <div style={{ 
-          background: 'white', 
-          padding: '24px', 
-          borderRadius: '12px', 
-          border: '1px solid #e5e7eb', 
-          marginBottom: '24px',
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-        }}>
-          <h2>{editingMember ? 'Edit Team Member' : 'Add New Team Member'}</h2>
-          <div style={{ display: 'grid', gap: '16px', maxWidth: '500px' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>
-                Full Name:
-              </label>
-              <input 
-                type="text" 
-                placeholder="Enter full name" 
-                value={formData.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-                style={{ 
-                  width: '100%', 
-                  padding: '12px', 
-                  border: '1px solid #d1d5db', 
-                  borderRadius: '6px',
-                  fontSize: '14px'
-                }} 
-              />
-            </div>
-            
-            <div>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>
-                Email Address:
-              </label>
-              <input 
-                type="email" 
-                placeholder="Enter email address" 
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                style={{ 
-                  width: '100%', 
-                  padding: '12px', 
-                  border: '1px solid #d1d5db', 
-                  borderRadius: '6px',
-                  fontSize: '14px'
-                }} 
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>
-                Phone Number:
-              </label>
-              <input 
-                type="tel" 
-                placeholder="Enter phone number" 
-                value={formData.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
-                style={{ 
-                  width: '100%', 
-                  padding: '12px', 
-                  border: '1px solid #d1d5db', 
-                  borderRadius: '6px',
-                  fontSize: '14px'
-                }} 
-              />
-            </div>
-            
-            <div>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>
-                Role:
-              </label>
-              <select 
-                value={formData.role}
-                onChange={(e) => handleInputChange('role', e.target.value)}
-                style={{ 
-                  width: '100%', 
-                  padding: '12px', 
-                  border: '1px solid #d1d5db', 
-                  borderRadius: '6px',
-                  fontSize: '14px'
-                }}
-              >
-                <option value="Farm Manager">Farm Manager</option>
-                <option value="Sensor Technician">Sensor Technician</option>
-                <option value="Analytics Specialist">Analytics Specialist</option>
-                <option value="Farm Owner">Farm Owner</option>
-                <option value="Observer">Observer</option>
-              </select>
-            </div>
-            
-            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-              <button 
-                onClick={editingMember ? handleUpdateMember : handleAddMember}
-                disabled={!formData.name || !formData.email}
-                style={{ 
-                  background: formData.name && formData.email ? '#10b981' : '#9ca3af', 
-                  color: 'white', 
-                  padding: '12px 20px', 
-                  border: 'none', 
-                  borderRadius: '6px', 
-                  cursor: formData.name && formData.email ? 'pointer' : 'not-allowed',
-                  fontSize: '14px',
-                  fontWeight: '500'
-                }}
-              >
-                {editingMember ? 'Update Member' : 'Add Member'}
-              </button>
-              <button 
-                onClick={cancelEdit}
-                style={{ 
-                  background: '#6b7280', 
-                  color: 'white', 
-                  padding: '12px 20px', 
-                  border: 'none', 
-                  borderRadius: '6px', 
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '500'
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
+    <div className="team-page">
+      {notification && (
+        <div className={`notification notification-${notification.type}`}>
+          <span>{notification.message}</span>
+          <button 
+            className="notification-close"
+            onClick={() => setNotification(null)}
+          >
+            ×
+          </button>
         </div>
       )}
 
-      <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-        <div style={{ padding: '24px', borderBottom: '1px solid #e5e7eb', background: '#f8fafc' }}>
-          <h2 style={{ margin: '0' }}>Team Members ({teamMembers.length})</h2>
+      {/* Invite Form */}
+      <div className="team-controls">
+        <form onSubmit={handleInviteMember} className="controls-main">
+          <input
+            type="email"
+            value={inviteForm.email}
+            onChange={(e) => setInviteForm(prev => ({...prev, email: e.target.value}))}
+            className="form-input"
+            placeholder="Enter email address"
+            required
+          />
+          <select
+            value={inviteForm.role}
+            onChange={(e) => setInviteForm(prev => ({...prev, role: e.target.value}))}
+            className="filter-select"
+          >
+            <option value="Worker">Worker</option>
+            <option value="Farm Manager">Farm Manager</option>
+            <option value="Farm Owner">Farm Owner</option>
+          </select>
+          <button type="submit" className="btn btn-primary btn-sm">
+            <UserPlus size={16} />
+            Invite Member
+          </button>
+        </form>
+      </div>
+
+      {/* Team Members List */}
+      <div className="team-list">
+        <div className="team-list-header">
+          <div className="header-cell">Name</div>
+          <div className="header-cell">Email</div>
+          <div className="header-cell">Role</div>
+          <div className="header-cell">Joined</div>
+          <div className="header-cell">Last Active</div>
+          <div className="header-cell">Actions</div>
         </div>
-        
-        <div>
+
+        <div className="team-list-body">
           {teamMembers.map(member => (
-            <div key={member.id} style={{ 
-              padding: '20px 24px', 
-              borderBottom: '1px solid #f3f4f6', 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              transition: 'background 0.2s ease'
-            }}
-            onMouseEnter={(e) => e.target.style.background = '#f8fafc'}
-            onMouseLeave={(e) => e.target.style.background = 'white'}
+            <div 
+              key={member.id} 
+              className={`team-list-row ${member.isCurrentUser ? 'current-user' : ''}`}
             >
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                  <div style={{ 
-                    width: '48px', 
-                    height: '48px', 
-                    borderRadius: '50%', 
-                    background: '#e5e7eb',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '18px',
-                    fontWeight: 'bold',
-                    color: '#6b7280'
-                  }}>
-                    {member.name.split(' ').map(n => n[0]).join('')}
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: '600', fontSize: '16px', color: '#111827', marginBottom: '2px' }}>
-                      {member.name}
-                    </div>
-                    <div style={{ color: '#6b7280', fontSize: '14px' }}>{member.role}</div>
-                  </div>
-                </div>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
-                  <div style={{ fontSize: '14px', color: '#6b7280' }}>
-                    <strong>Email:</strong> {member.email}
-                  </div>
-                  <div style={{ fontSize: '14px', color: '#6b7280' }}>
-                    <strong>Phone:</strong> {member.phone}
-                  </div>
-                  <div style={{ fontSize: '14px', color: '#6b7280' }}>
-                    <strong>Joined:</strong> {new Date(member.joinDate).toLocaleDateString()}
-                  </div>
-                  <div style={{ fontSize: '14px', color: '#6b7280' }}>
-                    <strong>Last Active:</strong> {member.lastActive}
-                  </div>
+              <div className="list-cell name-cell" data-label="Name">
+                <div className="member-name-display">
+                  {member.profilePicture && (
+                    <img 
+                      src={member.profilePicture} 
+                      alt={member.name}
+                      className="member-avatar"
+                    />
+                  )}
+                  <span className="member-name">{member.name}</span>
+                  {member.isCurrentUser && <span className="you-badge">You</span>}
                 </div>
               </div>
-              
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ 
-                    display: 'inline-block', 
-                    padding: '6px 12px', 
-                    borderRadius: '20px', 
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    background: getStatusBackground(member.status),
-                    color: getStatusColor(member.status),
-                    marginBottom: '8px'
-                  }}>
-                    {member.status.toUpperCase()}
+              <div className="list-cell email-cell" data-label="Email">
+                <Mail size={14} />
+                {member.email}
+              </div>
+              <div className="list-cell role-cell" data-label="Role">
+                <span className={getRoleBadgeClass(member.role)}>
+                  {getRoleDisplay(member.role)}
+                </span>
+              </div>
+              <div className="list-cell joined-cell" data-label="Joined">
+                {new Date(member.joinedDate).toLocaleDateString()}
+              </div>
+              <div className="list-cell activity-cell" data-label="Last Active">
+                <Clock size={14} />
+                {formatLastActive(member.lastActive)}
+              </div>
+              <div className="list-cell actions-cell">
+                {canManageMember(member) ? (
+                  <div className="action-buttons">
+                    <button 
+                      className="btn-icon"
+                      onClick={() => openEditModal(member)}
+                      title="Edit"
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    <button 
+                      className="btn-icon"
+                      onClick={() => {
+                        setSelectedMember(member);
+                        setShowPasswordModal(true);
+                      }}
+                      title="Reset Password"
+                    >
+                      <Key size={16} />
+                    </button>
+                    <button 
+                      className="btn-icon btn-icon-danger"
+                      onClick={() => openDeleteModal(member)}
+                      title="Delete"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
-                </div>
-                
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    onClick={() => handleEditMember(member)}
-                    style={{
-                      background: '#3b82f6',
-                      color: 'white',
-                      border: 'none',
-                      padding: '8px 12px',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                      fontWeight: '500'
-                    }}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDeleteMember(member.id)}
-                    style={{
-                      background: '#ef4444',
-                      color: 'white',
-                      border: 'none',
-                      padding: '8px 12px',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                      fontWeight: '500'
-                    }}
-                  >
-                    Remove
-                  </button>
-                </div>
+                ) : (
+                  <span className="no-actions">—</span>
+                )}
               </div>
             </div>
           ))}
         </div>
       </div>
+
+      {/* Modals remain the same... */}
+      {/* Password Reset Modal */}
+      {showPasswordModal && selectedMember && (
+        <div className="modal-overlay" onClick={() => setShowPasswordModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Reset Password</h2>
+              <button className="modal-close" onClick={() => setShowPasswordModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p className="member-info-text">
+                <strong>{selectedMember.name}</strong> ({selectedMember.email})
+              </p>
+              <div className="form-group">
+                <label className="form-label">New Password</label>
+                <div className="password-input-group">
+                  <input
+                    type="text"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="form-input"
+                    placeholder="Enter new password or generate one"
+                  />
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={generateRandomPassword}>
+                    Generate
+                  </button>
+                </div>
+              </div>
+              <p className="form-help">Please provide the new password to the user securely.</p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowPasswordModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handlePasswordReset}>Update Password</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Member Modal */}
+      {showEditModal && selectedMember && (
+        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Edit Team Member</h2>
+              <button className="modal-close" onClick={() => setShowEditModal(false)}>×</button>
+            </div>
+            <form onSubmit={handleEditMember}>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label className="form-label">Full Name</label>
+                  <input
+                    type="text"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm(prev => ({...prev, name: e.target.value}))}
+                    className="form-input"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Email Address</label>
+                  <input
+                    type="email"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm(prev => ({...prev, email: e.target.value}))}
+                    className="form-input"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Role</label>
+                  <select
+                    value={editForm.role}
+                    onChange={(e) => setEditForm(prev => ({...prev, role: e.target.value}))}
+                    className="form-input"
+                  >
+                    <option value="admin">Farm Owner</option>
+                    <option value="manager">Farm Manager</option>
+                    <option value="worker">Worker</option>
+                  </select>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowEditModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && selectedMember && (
+        <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Delete Team Member</h2>
+              <button className="modal-close" onClick={() => setShowDeleteModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p className="delete-warning">
+                Are you sure you want to remove <strong>{selectedMember.name}</strong> from your team?
+              </p>
+              <p className="member-info-text">{selectedMember.email}</p>
+              <p className="form-help">
+                This action cannot be undone. The user will lose access to the farm management system.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowDeleteModal(false)}>Cancel</button>
+              <button className="btn btn-danger" onClick={handleDeleteMember}>
+                <Trash2 size={16} />
+                Delete Member
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

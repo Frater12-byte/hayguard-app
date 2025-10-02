@@ -1,0 +1,12 @@
+.sensors .sensors-grid.grid {
+  align-items: start;
+  grid-auto-rows: min-content;
+}
+
+.sensors .sensor-card.card {
+  height: auto;
+  max-height: 300px;
+  min-height: unset;
+  display: flex;
+  flex-direction: column;
+}

@@ -1,232 +1,505 @@
 import React, { useState, useEffect } from 'react';
-import './Dashboard.css';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Link } from 'react-router-dom';
+import Loading from './Common/Loading';
+import { sensorService } from '../services/api/sensorService';
+import { alertService } from '../services/api/alertService';
+import { weatherService } from '../services/api/weatherService';
 
-const Dashboard = ({ user }) => {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [alerts, setAlerts] = useState([]);
-
-  // Mock data - in real app this would come from API
-  const kpiData = {
-    activeSensors: 12,
-    criticalAlerts: 3,
-    totalBales: 1247,
-    avgTemperature: 23.5,
-    avgMoisture: 14.2,
-    systemHealth: 98
-  };
-
-  const mockAlerts = [
-    {
-      id: 1,
-      date: '2025-01-15',
-      time: '14:30',
-      sensor: 'HB-2024-002',
-      type: 'critical',
-      title: 'High Temperature Alert',
-      description: 'Temperature reached 85°C in South Field B. Immediate action required.',
-      location: 'South Field B'
-    },
-    {
-      id: 2,
-      date: '2025-01-15',
-      time: '12:15',
-      sensor: 'HB-2024-001',
-      type: 'warning',
-      title: 'Moisture Level Warning',
-      description: 'Moisture level at 18.2% - monitor closely for potential issues.',
-      location: 'North Field A'
-    },
-    {
-      id: 3,
-      date: '2025-01-14',
-      time: '09:45',
-      sensor: 'HB-2024-003',
-      type: 'info',
-      title: 'Sensor Maintenance',
-      description: 'Routine maintenance completed successfully.',
-      location: 'East Field C'
-    }
-  ];
+const Dashboard = () => {
+  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState({
+    sensors: { total: 0, active: 0 },
+    criticalAlerts: 0,
+    balesMonitored: 45,
+    systemHealth: 98,
+    weather: null,
+    recentReadings: [],
+    temperatureData: [],
+    moistureData: []
+  });
 
   useEffect(() => {
-    // Filter alerts by selected date
-    const filteredAlerts = mockAlerts.filter(alert => alert.date === selectedDate);
-    setAlerts(filteredAlerts);
-  }, [selectedDate]); // mockAlerts is static, no need to include
+    const fetchDashboardData = async () => {
+      try {
+        // Fetch data from multiple APIs
+        const [sensorsData, alertsData, weatherData] = await Promise.all([
+          sensorService.getAllSensors(),
+          alertService.getCriticalAlerts(),
+          weatherService.getCurrentWeather()
+        ]);
 
-  const teamActivity = [
-    { user: 'John Smith', action: 'Added new sensor HB-2024-012', time: '2 hours ago', avatar: '/default-avatar.png' },
-    { user: 'Sarah Wilson', action: 'Updated temperature threshold', time: '4 hours ago', avatar: '/default-avatar.png' },
-    { user: 'Mike Johnson', action: 'Resolved critical alert in Field B', time: '6 hours ago', avatar: '/default-avatar.png' }
-  ];
+        // Generate temperature and moisture data for charts
+        const chartData = [];
+        for (let i = 23; i >= 0; i--) {
+          chartData.push({
+            time: `${String(23 - i).padStart(2, '0')}:00`,
+            temperature: parseFloat((15 + Math.random() * 8 + Math.sin((23 - i) / 4) * 3).toFixed(2)),
+            moisture: parseFloat((10 + Math.random() * 8 + Math.sin((23 - i) / 6) * 2).toFixed(2))
+          });
+        }
+
+        // Mock recent readings from active sensors
+        const recentReadings = sensorsData.sensors
+          .filter(sensor => sensor.status === 'active')
+          .slice(0, 5)
+          .map(sensor => ({
+            id: sensor.id,
+            sensor: sensor.id,
+            location: sensor.location,
+            temp: sensor.temperature,
+            moisture: sensor.moisture,
+            status: sensor.status,
+            time: new Date(sensor.lastUpdate).toLocaleTimeString('en-US', { 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            })
+          }));
+
+        setDashboardData({
+          sensors: {
+            total: sensorsData.total,
+            active: sensorsData.active
+          },
+          criticalAlerts: alertsData.criticalAlerts,
+          balesMonitored: 45, // This could come from another API
+          systemHealth: Math.round((sensorsData.active / sensorsData.total) * 100),
+          weather: weatherData,
+          recentReadings,
+          temperatureData: chartData,
+          moistureData: chartData
+        });
+
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  if (loading) {
+    return <Loading message="Loading dashboard..." />;
+  }
 
   return (
-    <div className="dashboard">
-      <div className="dashboard-header">
-        <h1>Farm Dashboard</h1>
-        <p>Welcome back, {user?.name || 'Farmer'}! Here's your farm overview.</p>
+    <div className="page-container">
+      {/* KPI Cards Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4" style={{ marginBottom: 'var(--spacing-6)' }}>
+        <KPICard
+          title="Sensors Deployed"
+          value={`${dashboardData.sensors.active}/${dashboardData.sensors.total}`}
+          icon="🔧"
+          status={dashboardData.sensors.active === dashboardData.sensors.total ? 'success' : 'warning'}
+          subtitle={`${dashboardData.sensors.total - dashboardData.sensors.active} offline`}
+        />
+        
+        <KPICard
+          title="Critical Alerts"
+          value={dashboardData.criticalAlerts}
+          icon="🚨"
+          status={dashboardData.criticalAlerts === 0 ? 'success' : 'error'}
+          subtitle="Require attention"
+        />
+        
+        <KPICard
+          title="Bales Monitored"
+          value={dashboardData.balesMonitored}
+          icon="🌾"
+          status="success"
+          subtitle="Active monitoring"
+        />
+        
+        <KPICard
+          title="System Health"
+          value={`${dashboardData.systemHealth}%`}
+          icon="💚"
+          status={dashboardData.systemHealth > 95 ? 'success' : 'warning'}
+          subtitle="Overall performance"
+        />
       </div>
 
-      {/* Main KPIs - 6 in one line for desktop */}
-      <div className="kpi-grid">
-        <div className="kpi-card">
-          <div className="kpi-icon">📡</div>
-          <div className="kpi-content">
-            <h3>{kpiData.activeSensors}</h3>
-            <p>Active Sensors</p>
+      {/* Weather + Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3" style={{ marginBottom: 'var(--spacing-6)' }}>
+        {/* Weather Card */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="heading-2">Weather Conditions</h2>
           </div>
-        </div>
-        
-        <div className="kpi-card critical">
-          <div className="kpi-icon">⚠️</div>
-          <div className="kpi-content">
-            <h3>{kpiData.criticalAlerts}</h3>
-            <p>Critical Alerts</p>
-          </div>
-        </div>
-        
-        <div className="kpi-card">
-          <div className="kpi-icon">📦</div>
-          <div className="kpi-content">
-            <h3>{kpiData.totalBales.toLocaleString()}</h3>
-            <p>Total Bales</p>
-          </div>
-        </div>
-        
-        <div className="kpi-card">
-          <div className="kpi-icon">🌡️</div>
-          <div className="kpi-content">
-            <h3>{kpiData.avgTemperature}°C</h3>
-            <p>Avg Temperature</p>
-          </div>
-        </div>
-        
-        <div className="kpi-card">
-          <div className="kpi-icon">💧</div>
-          <div className="kpi-content">
-            <h3>{kpiData.avgMoisture}%</h3>
-            <p>Avg Moisture</p>
-          </div>
-        </div>
-        
-        <div className="kpi-card">
-          <div className="kpi-icon">✅</div>
-          <div className="kpi-content">
-            <h3>{kpiData.systemHealth}%</h3>
-            <p>System Health</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Alerts History Section */}
-      <div className="alerts-history-section">
-        <div className="section-header">
-          <h2>Alerts History</h2>
-          <div className="date-selector">
-            <label htmlFor="alertDate">Select Date:</label>
-            <input
-              id="alertDate"
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="date-input"
-            />
-          </div>
-        </div>
-        
-        <div className="alerts-list">
-          {alerts.length > 0 ? (
-            alerts.map(alert => (
-              <div key={alert.id} className={`alert-item ${alert.type}`}>
-                <div className="alert-time">{alert.time}</div>
-                <div className="alert-content">
-                  <div className="alert-header">
-                    <span className="alert-title">{alert.title}</span>
-                    <span className="alert-sensor">Sensor: {alert.sensor}</span>
+          <div className="card-body" style={{ textAlign: 'center' }}>
+            {dashboardData.weather && (
+              <>
+                <div style={{ fontSize: '3rem', marginBottom: 'var(--spacing-2)' }}>
+                  {dashboardData.weather.icon}
+                </div>
+                <h3 className="heading-3">{dashboardData.weather.temperature}°C</h3>
+                <p className="text-muted">{dashboardData.weather.condition}</p>
+                <div className="weather-details">
+                  <div className="weather-item">
+                    <span className="weather-label">Humidity:</span>
+                    <span className="weather-value">{dashboardData.weather.humidity}%</span>
                   </div>
-                  <p className="alert-description">{alert.description}</p>
-                  <div className="alert-location">📍 {alert.location}</div>
+                  <div className="weather-item">
+                    <span className="weather-label">Wind:</span>
+                    <span className="weather-value">{dashboardData.weather.windSpeed} km/h</span>
+                  </div>
                 </div>
-              </div>
-            ))
-          ) : (
-            <div className="no-alerts">
-              <p>No alerts for {selectedDate}</p>
-            </div>
-          )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Temperature Chart */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="heading-2">Temperature (24h)</h2>
+          </div>
+          <div className="card-body">
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart data={dashboardData.temperatureData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--gray-200)" />
+                <XAxis 
+                  dataKey="time" 
+                  stroke="var(--gray-500)"
+                  fontSize={11}
+                  interval="preserveStartEnd"
+                />
+                <YAxis 
+                  stroke="var(--gray-500)"
+                  fontSize={11}
+                  domain={['dataMin - 2', 'dataMax + 2']}
+                />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: 'white',
+                    border: '1px solid var(--gray-200)',
+                    borderRadius: 'var(--border-radius-md)',
+                    boxShadow: 'var(--shadow-lg)'
+                  }}
+                  formatter={(value) => [`${value}°C`, 'Temperature']}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="temperature" 
+                  stroke="var(--error-red)" 
+                  strokeWidth={2.5}
+                  dot={{ fill: 'var(--error-red)', strokeWidth: 0, r: 3 }}
+                  activeDot={{ r: 5, stroke: 'var(--error-red)', strokeWidth: 2 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Moisture Chart */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="heading-2">Moisture (24h)</h2>
+          </div>
+          <div className="card-body">
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart data={dashboardData.moistureData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--gray-200)" />
+                <XAxis 
+                  dataKey="time" 
+                  stroke="var(--gray-500)"
+                  fontSize={11}
+                  interval="preserveStartEnd"
+                />
+                <YAxis 
+                  stroke="var(--gray-500)"
+                  fontSize={11}
+                  domain={['dataMin - 1', 'dataMax + 1']}
+                />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: 'white',
+                    border: '1px solid var(--gray-200)',
+                    borderRadius: 'var(--border-radius-md)',
+                    boxShadow: 'var(--shadow-lg)'
+                  }}
+                  formatter={(value) => [`${value}%`, 'Moisture']}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="moisture" 
+                  stroke="var(--success-green)" 
+                  strokeWidth={2.5}
+                  dot={{ fill: 'var(--success-green)', strokeWidth: 0, r: 3 }}
+                  activeDot={{ r: 5, stroke: 'var(--success-green)', strokeWidth: 2 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
 
-      {/* Charts Section */}
-      <div className="charts-section">
-        <div className="chart-container">
-          <h3>Temperature Trends (Last 7 Days)</h3>
-          <div className="chart-placeholder">
-            <svg viewBox="0 0 400 200" className="chart-svg">
-              {/* Grid lines */}
-              <defs>
-                <pattern id="grid" width="40" height="20" patternUnits="userSpaceOnUse">
-                  <path d="M 40 0 L 0 0 0 20" fill="none" stroke="#e1e5e9" strokeWidth="1"/>
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#grid)" />
-              
-              {/* Sample data line */}
-              <polyline
-                fill="none"
-                stroke="#f7b32b"
-                strokeWidth="3"
-                points="20,150 60,120 100,140 140,110 180,130 220,100 260,120 300,90 340,110 380,95"
-              />
-              
-              {/* Data points */}
-              {[20,60,100,140,180,220,260,300,340,380].map((x, i) => {
-                const y = [150,120,140,110,130,100,120,90,110,95][i];
-                return <circle key={i} cx={x} cy={y} r="4" fill="#7c4219" />;
-              })}
-            </svg>
+      {/* Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-2">
+        <div className="card">
+          <div className="card-header">
+            <h2 className="heading-2">Recent Sensor Readings</h2>
+          </div>
+          <div className="card-body">
+            <div className="readings-list">
+              {dashboardData.recentReadings.map(reading => (
+                <div key={reading.id} className="reading-item">
+                  <div className="reading-info">
+                    <div className="flex items-center gap-2">
+                      <span className="sensor-id">{reading.sensor}</span>
+                      <span className={`status-dot ${reading.status}`}></span>
+                    </div>
+                    <p className="location">{reading.location}</p>
+                    <div className="readings">
+                      <span className="temp">🌡️ {reading.temp.toFixed(2)}°C</span>
+                      <span className="moisture">💧 {reading.moisture.toFixed(2)}%</span>
+                    </div>
+                  </div>
+                  <div className="reading-time">{reading.time}</div>
+                </div>
+              ))}
+            </div>
+            <div className="card-footer">
+              <Link to="/sensors" className="btn btn-secondary">
+                View All Sensors
+              </Link>
+            </div>
           </div>
         </div>
-        
-        <div className="chart-container">
-          <h3>Moisture Levels (Last 7 Days)</h3>
-          <div className="chart-placeholder">
-            <svg viewBox="0 0 400 200" className="chart-svg">
-              <rect width="100%" height="100%" fill="url(#grid)" />
-              <polyline
-                fill="none"
-                stroke="#42210e"
-                strokeWidth="3"
-                points="20,160 60,140 100,155 140,135 180,150 220,130 260,145 300,125 340,140 380,135"
-              />
-              {[20,60,100,140,180,220,260,300,340,380].map((x, i) => {
-                const y = [160,140,155,135,150,130,145,125,140,135][i];
-                return <circle key={i} cx={x} cy={y} r="4" fill="#42210e" />;
-              })}
-            </svg>
+
+        <div className="card">
+          <div className="card-header">
+            <h2 className="heading-2">System Overview</h2>
+          </div>
+          <div className="card-body">
+            <div className="system-stats">
+              <div className="stat-row">
+                <span className="stat-label">Active Sensors</span>
+                <span className="stat-value">{dashboardData.sensors.active}/{dashboardData.sensors.total}</span>
+              </div>
+              <div className="stat-row">
+                <span className="stat-label">Critical Alerts</span>
+                <span className={`stat-value ${dashboardData.criticalAlerts > 0 ? 'text-error' : 'text-success'}`}>
+                  {dashboardData.criticalAlerts}
+                </span>
+              </div>
+              <div className="stat-row">
+                <span className="stat-label">System Uptime</span>
+                <span className="stat-value">99.2%</span>
+              </div>
+              <div className="stat-row">
+                <span className="stat-label">Data Points Today</span>
+                <span className="stat-value">1,247</span>
+              </div>
+            </div>
+            <div className="card-footer">
+              <Link to="/alerts" className="btn btn-primary">
+                View All Alerts
+              </Link>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Team Activity Section */}
-      <div className="team-activity-section">
-        <h3>Recent Team Activity</h3>
-        <div className="activity-list">
-          {teamActivity.map((activity, index) => (
-            <div key={index} className="activity-item">
-              <img src={activity.avatar} alt={activity.user} className="activity-avatar" />
-              <div className="activity-content">
-                <div className="activity-text">
-                  <strong>{activity.user}</strong> {activity.action}
-                </div>
-                <div className="activity-time">{activity.time}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <style jsx>{`
+        .weather-details {
+          margin-top: var(--spacing-4);
+          display: flex;
+          justify-content: center;
+          gap: var(--spacing-6);
+        }
+
+        .weather-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: var(--spacing-1);
+        }
+
+        .weather-label {
+          font-size: var(--font-size-xs);
+          color: var(--gray-500);
+        }
+
+        .weather-value {
+          font-weight: 600;
+          color: var(--gray-900);
+        }
+
+        .readings-list {
+          display: flex;
+          flex-direction: column;
+          gap: var(--spacing-3);
+        }
+
+        .reading-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: var(--spacing-3);
+          background: var(--gray-50);
+          border-radius: var(--border-radius-md);
+          border-left: 4px solid var(--success-green);
+        }
+
+        .reading-info {
+          flex: 1;
+        }
+
+        .sensor-id {
+          font-weight: 600;
+          color: var(--gray-900);
+        }
+
+        .status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          display: inline-block;
+        }
+
+        .status-dot.active {
+          background: var(--success-green);
+        }
+
+        .location {
+          font-size: var(--font-size-sm);
+          color: var(--gray-500);
+          margin: var(--spacing-1) 0;
+        }
+
+        .readings {
+          display: flex;
+          gap: var(--spacing-4);
+        }
+
+        .temp, .moisture {
+          font-size: var(--font-size-sm);
+          font-weight: 500;
+        }
+
+        .reading-time {
+          font-size: var(--font-size-sm);
+          color: var(--gray-500);
+        }
+
+        .system-stats {
+          display: flex;
+          flex-direction: column;
+          gap: var(--spacing-4);
+        }
+
+        .stat-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: var(--spacing-3);
+          background: var(--gray-50);
+          border-radius: var(--border-radius-md);
+        }
+
+        .stat-label {
+          font-weight: 500;
+          color: var(--gray-700);
+        }
+
+        .stat-value {
+          font-weight: 600;
+          color: var(--gray-900);
+        }
+
+        .text-error {
+          color: var(--error-red);
+        }
+
+        .text-success {
+          color: var(--success-green);
+        }
+      `}</style>
     </div>
   );
 };
+
+// KPI Card Component (same as before but with improved styling)
+const KPICard = ({ title, value, icon, status, subtitle }) => (
+  <div className="card kpi-card">
+    <div className="card-body">
+      <div className="kpi-header">
+        <div className="kpi-icon">{icon}</div>
+        <div className={`kpi-status status-${status}`}></div>
+      </div>
+      <div className="kpi-value">{value}</div>
+      <div className="kpi-title">{title}</div>
+      <div className="kpi-subtitle">{subtitle}</div>
+    </div>
+    
+    <style jsx>{`
+      .kpi-card {
+        position: relative;
+        overflow: hidden;
+        border-left: 4px solid ${status === 'success' ? 'var(--success-green)' : 
+                                 status === 'warning' ? 'var(--warning-orange)' : 
+                                 'var(--error-red)'};
+      }
+
+      .kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+        transition: all 0.2s ease;
+      }
+
+      .kpi-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: var(--spacing-4);
+      }
+
+      .kpi-icon {
+        font-size: 2rem;
+        opacity: 0.9;
+      }
+
+      .kpi-status {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
+
+      .status-success {
+        background: var(--success-green);
+      }
+
+      .status-warning {
+        background: var(--warning-orange);
+      }
+
+      .status-error {
+        background: var(--error-red);
+      }
+
+      .kpi-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        margin-bottom: var(--spacing-1);
+      }
+
+      .kpi-title {
+        font-size: var(--font-size-sm);
+        font-weight: 600;
+        color: var(--gray-700);
+        margin-bottom: var(--spacing-1);
+      }
+
+      .kpi-subtitle {
+        font-size: var(--font-size-xs);
+        color: var(--gray-500);
+      }
+    `}</style>
+  </div>
+);
 
 export default Dashboard;
