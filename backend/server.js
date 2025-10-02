@@ -1,3 +1,5 @@
+
+
 // backend/server.js
 const express = require('express');
 const cors = require('cors');
@@ -134,18 +136,18 @@ app.get('/api/sensors', authenticateToken, async (req, res) => {
 
 app.post('/api/sensors', authenticateToken, async (req, res) => {
   try {
-    const { name, type, location, farm_id } = req.body;
+    const { name, location, sensor_id, type, bales_monitored, temperature, moisture, battery_level } = req.body;
     
     const result = await pool.query(
-      'INSERT INTO sensors (name, type, location, farm_id) VALUES ($1, $2, $3, $4) RETURNING *',
-      [name, type, location, farm_id]
+      'INSERT INTO sensors (user_id, sensor_id, name, location, type, bales_monitored, temperature, moisture, battery_level) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+      [req.user.userId, sensor_id, name, location, type || "temperature", bales_monitored || 0, temperature || 0, moisture || 0, battery_level || 100]
     );
     
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating sensor:', error);
-    res.status(500).json({ error: 'Failed to create sensor' });
-  }
+    console.error("Sensor creation error:", error);
+    res.status(500).json({ error: "Failed to create sensor", details: error.message, code: error.code });  }
 });
 
 app.get('/api/sensors/:id/data', authenticateToken, async (req, res) => {
@@ -225,7 +227,7 @@ app.get('/api/users', authenticateToken, async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching users:', error);
-    res.status(500).json({ error: 'Failed to fetch users' });
+    res.status(500).json({ error: 'Failed to fetch users', details: error.message, code: error.code, database_url_exists: !!process.env.DATABASE_URL });
   }
 });
 
@@ -275,7 +277,7 @@ app.get('/api/users/public', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching users:', error);
-    res.status(500).json({ error: 'Failed to fetch users' });
+    res.status(500).json({ error: 'Failed to fetch users', details: error.message, code: error.code, database_url_exists: !!process.env.DATABASE_URL });
   }
 });
 
@@ -300,4 +302,289 @@ app.get('/', (req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+});
+
+// Email invitation endpoint
+app.post('/api/email/invite', authenticateToken, async (req, res) => {
+  try {
+    const { email, role } = req.body;
+    res.json({ 
+      success: true, 
+      message: `Invitation sent to ${email} with role ${role}`,
+      email: email,
+      role: role 
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to send invitation' });
+  }
+});
+
+// Email invitation endpoint
+app.post('/api/email/invite', authenticateToken, async (req, res) => {
+  try {
+    const { email, role } = req.body;
+    res.json({ 
+      success: true, 
+      message: `Invitation sent to ${email} with role ${role}`,
+      email: email,
+      role: role 
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to send invitation' });
+  }
+});
+
+
+// Team members endpoints
+app.get('/api/team/members', authenticateToken, async (req, res) => {
+  try {
+    // Create table if it doesn't exist
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS team_members (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        role VARCHAR(50) NOT NULL,
+        invited_by_user_id INTEGER REFERENCES users(id),
+        status VARCHAR(20) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    const result = await pool.query(
+      'SELECT * FROM team_members WHERE invited_by_user_id = $1 ORDER BY created_at DESC',
+      [req.user.userId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Failed to fetch team members:', error);
+    res.status(500).json({ error: 'Failed to fetch team members' });
+  }
+});
+
+app.post('/api/team/members', authenticateToken, async (req, res) => {
+  try {
+    const { email, role } = req.body;
+    const result = await pool.query(
+      'INSERT INTO team_members (email, role, invited_by_user_id, status) VALUES ($1, $2, $3, $4) RETURNING *',
+      [email, role, req.user.userId, 'pending']
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Failed to add team member:', error);
+    res.status(500).json({ error: 'Failed to add team member' });
+  }
+});
+
+// Get individual sensor
+app.get('/api/sensors/:id', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM sensors WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.user.userId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Sensor not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Failed to get sensor:', error);
+    res.status(500).json({ error: 'Failed to get sensor' });
+  }
+});
+
+// Update sensor
+app.put('/api/sensors/:id', authenticateToken, async (req, res) => {
+  try {
+    const { name, location, sensor_id, type, bales_monitored } = req.body;
+    const result = await pool.query(
+      'UPDATE sensors SET name = $1, location = $2, sensor_id = $3, type = $4, bales_monitored = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6 AND user_id = $7 RETURNING *',
+      [name, location, sensor_id, type, bales_monitored, req.params.id, req.user.userId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Sensor not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Failed to update sensor:', error);
+    res.status(500).json({ error: 'Failed to update sensor' });
+  }
+});
+
+// Add missing columns to sensors table
+app.post('/api/admin/update-schema', authenticateToken, async (req, res) => {
+  try {
+    // Add type column if it doesn't exist
+    await pool.query(`
+      ALTER TABLE sensors 
+      ADD COLUMN IF NOT EXISTS type VARCHAR(50) DEFAULT 'temperature'
+    `);
+    
+    res.json({ success: true, message: 'Schema updated' });
+  } catch (error) {
+    console.error('Schema update failed:', error);
+    res.status(500).json({ error: 'Schema update failed', details: error.message });
+  }
+});
+
+// Get farm info
+app.get('/api/farm/info', authenticateToken, async (req, res) => {
+  try {
+    // Get or create farm info for the user
+    let result = await pool.query(
+      'SELECT * FROM farm_info WHERE user_id = $1',
+      [req.user.userId]
+    );
+    
+    if (result.rows.length === 0) {
+      // Create default farm info if none exists
+      result = await pool.query(
+        'INSERT INTO farm_info (user_id, farm_name, location, description) VALUES ($1, $2, $3, $4) RETURNING *',
+        [req.user.userId, 'My Farm', 'Location not set', 'Farm description']
+      );
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Failed to get farm info:', error);
+    res.status(500).json({ error: 'Failed to get farm info' });
+  }
+});
+
+// Update farm info
+app.put('/api/farm/info', authenticateToken, async (req, res) => {
+  try {
+    const { farm_name, location, description, contact_email, contact_phone } = req.body;
+    
+    // Create table if it doesn't exist
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS farm_info (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        farm_name VARCHAR(255),
+        location VARCHAR(255),
+        description TEXT,
+        contact_email VARCHAR(255),
+        contact_phone VARCHAR(50),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    const result = await pool.query(
+      'UPDATE farm_info SET farm_name = $1, location = $2, description = $3, contact_email = $4, contact_phone = $5, updated_at = CURRENT_TIMESTAMP WHERE user_id = $6 RETURNING *',
+      [farm_name, location, description, contact_email, contact_phone, req.user.userId]
+    );
+    
+    if (result.rows.length === 0) {
+      // Insert if no existing record
+      const insertResult = await pool.query(
+        'INSERT INTO farm_info (user_id, farm_name, location, description, contact_email, contact_phone) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+        [req.user.userId, farm_name, location, description, contact_email, contact_phone]
+      );
+      res.json(insertResult.rows[0]);
+    } else {
+      res.json(result.rows[0]);
+    }
+  } catch (error) {
+    console.error('Failed to update farm info:', error);
+    res.status(500).json({ error: 'Failed to update farm info' });
+  }
+});
+
+// Get farm statistics
+app.get('/api/farm/stats', authenticateToken, async (req, res) => {
+  try {
+    // Get sensor count
+    const sensorResult = await pool.query(
+      'SELECT COUNT(*) as sensor_count FROM sensors WHERE user_id = $1',
+      [req.user.userId]
+    );
+    
+    // Get total bales monitored
+    const balesResult = await pool.query(
+      'SELECT SUM(bales_monitored) as total_bales FROM sensors WHERE user_id = $1',
+      [req.user.userId]
+    );
+    
+    // Get team member count
+    const teamResult = await pool.query(
+      'SELECT COUNT(*) as team_count FROM team_members WHERE invited_by_user_id = $1',
+      [req.user.userId]
+    );
+    
+    res.json({
+      sensor_count: parseInt(sensorResult.rows[0].sensor_count) || 0,
+      total_bales: parseInt(balesResult.rows[0].total_bales) || 0,
+      team_count: parseInt(teamResult.rows[0].team_count) || 0
+    });
+  } catch (error) {
+    console.error('Failed to get farm stats:', error);
+    res.status(500).json({ error: 'Failed to get farm stats' });
+  }
+});
+
+// Get user profile
+app.get('/api/user/profile', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, email, name, role, created_at FROM users WHERE id = $1',
+      [req.user.userId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Failed to get user profile:', error);
+    res.status(500).json({ error: 'Failed to get user profile' });
+  }
+});
+
+// Update user profile
+app.put('/api/user/profile', authenticateToken, async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const result = await pool.query(
+      'UPDATE users SET name = $1, email = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING id, email, name, role, created_at',
+      [name, email, req.user.userId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Failed to update user profile:', error);
+    res.status(500).json({ error: 'Failed to update user profile' });
+  }
+});
+
+// Profile picture upload endpoint (simplified - in production you'd use cloud storage)
+app.post('/api/user/profile/picture', authenticateToken, async (req, res) => {
+  try {
+    // For demo purposes, we'll just return a placeholder URL
+    // In production, you'd handle file upload to cloud storage like AWS S3
+    const profilePictureUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(req.user.email)}&background=8b5a2b&color=fff&size=200`;
+    
+    // Update user profile picture in database
+    await pool.query(
+      'UPDATE users SET profile_picture = $1 WHERE id = $2',
+      [profilePictureUrl, req.user.userId]
+    );
+    
+    res.json({ 
+      success: true, 
+      profilePicture: profilePictureUrl 
+    });
+  } catch (error) {
+    console.error('Failed to upload profile picture:', error);
+    res.status(500).json({ error: 'Failed to upload profile picture' });
+  }
 });
